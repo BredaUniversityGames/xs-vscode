@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+out/
+*.vsix
+
+# IDE settings (optional - remove .vscode/ if you want to share workspace settings)
+.vscode/
+.vscode-test.mjs
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
