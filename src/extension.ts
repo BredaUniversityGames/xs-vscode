@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { ArchiveEditorProvider } from './archiveEditor';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
@@ -22,6 +23,11 @@ export async function activate(context: vscode.ExtensionContext) {
             console.log('project.json not found or invalid');
         }
     }
+
+     // Register archive viewer
+    context.subscriptions.push(
+        ArchiveEditorProvider.register(context)
+    );
 
     // Create status bar item
     const statusBarItem = vscode.window.createStatusBarItem(
@@ -77,6 +83,19 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('Terminal command sent');
 	});
     context.subscriptions.push(runEngine);
+}
+
+
+function getLanguageId(filePath: string): string {
+    const ext = path.extname(filePath);
+    const langMap: { [key: string]: string } = {
+        '.json': 'json',
+        '.txt': 'plaintext',
+        '.wren': 'javascript', // Close enough
+        '.frag': 'glsl',
+        '.vert': 'glsl'
+    };
+    return langMap[ext] || 'plaintext';
 }
 
 export function deactivate() {}

@@ -16,19 +16,15 @@
   "contributes": {
     "commands": [
       {
-        "command": "xs-vscode.helloWorld",
-        "title": "Hello World"
-      },
-      {
         "command": "xs-vscode.runEngine",
-        "title": "XS: Run Engine"
+        "title": "xs: run engine"
       }
     ],
     "languages": [
       {
         "id": "xs-archive",
         "extensions": [".xs"],
-        "aliases": ["XS Archive"],
+        "aliases": ["xs archive"],
         "icon": {
           "light": "./media/icons/xs-file.svg",
           "dark": "./media/icons/xs-file.svg"
@@ -37,15 +33,27 @@
       {
         "id": "xs-animation",
         "extensions": [".xsanim"],
-        "aliases": ["XS Animation"],
+        "aliases": ["xs animation"],
         "icon": {
           "light": "./media/icons/xsanim-file.svg",
           "dark": "./media/icons/xsanim-file.svg"
         }
       }
     ],
+    "customEditors": [
+      {
+        "viewType": "xs.archiveViewer",
+        "displayName": "XS Archive Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.xs"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "configuration": {
-    "title": "XS Engine",
+    "title": "xs engine",
     "properties": {
       "xs.enginePath": {
         "type": "string",
