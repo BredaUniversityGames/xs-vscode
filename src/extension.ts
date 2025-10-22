@@ -1,8 +1,40 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-export function activate(context: vscode.ExtensionContext) {
-    console.log('xs-vscode is now active');
+export async function activate(context: vscode.ExtensionContext) {
+    console.log('xs-vscode activating ...');
+
+     // Optional: Verify this is actually an XS project
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+        const projectJsonUri = vscode.Uri.joinPath(workspaceFolder.uri, 'project.json');
+        try {
+            const content = await vscode.workspace.fs.readFile(projectJsonUri);
+            const projectData = JSON.parse(content.toString());
+            
+            // Check for XS-specific fields if needed
+            if (!projectData.Main) {
+                return;
+            }
+            
+            console.log('xs project detected. xs-vscode activated.');
+        } catch (e) {
+            console.log('project.json not found or invalid');
+        }
+    }
+
+    // Create status bar item
+    const statusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        0 // Priority (higher = more left)
+    );
+    
+    statusBarItem.command = 'xs-vscode.runEngine';
+    statusBarItem.text = '$(play) Run Game (xs)';
+    statusBarItem.tooltip = 'Run current folder as an xs game';
+    statusBarItem.show();
+    
+    context.subscriptions.push(statusBarItem);
 
     // Run Engine command
    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
