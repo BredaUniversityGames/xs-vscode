@@ -22,6 +22,26 @@
         "title": "XS: Run Engine"
       }
     ],
+    "languages": [
+      {
+        "id": "xs-archive",
+        "extensions": [".xs"],
+        "aliases": ["XS Archive"],
+        "icon": {
+          "light": "./media/icons/xs-file.svg",
+          "dark": "./media/icons/xs-file.svg"
+        }
+      },
+      {
+        "id": "xs-animation",
+        "extensions": [".xsanim"],
+        "aliases": ["XS Animation"],
+        "icon": {
+          "light": "./media/icons/xsanim-file.svg",
+          "dark": "./media/icons/xsanim-file.svg"
+        }
+      }
+    ],
     "configuration": {
     "title": "XS Engine",
     "properties": {

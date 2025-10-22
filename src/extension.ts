@@ -5,38 +5,45 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode is now active');
 
     // Run Engine command
-    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
-        const config = vscode.workspace.getConfiguration('xs');
-        let enginePath = config.get<string>('enginePath', '');
-        let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
+   let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
+    const config = vscode.workspace.getConfiguration('xs');
+    let enginePath = config.get<string>('enginePath', '');
+    let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
 
-        // Validate engine path
-        if (!enginePath) {
-            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
+    console.log('Engine path:', enginePath);
+    console.log('Working dir:', workingDir);
+
+    // Validate engine path
+    if (!enginePath) {
+        vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
+        return;
+    }
+
+    // Resolve ${workspaceFolder} variable
+    if (workingDir.includes('${workspaceFolder}')) {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            workingDir = workingDir.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
+        } else {
+            vscode.window.showErrorMessage('No workspace folder open');
             return;
         }
+    }
 
-        // Resolve ${workspaceFolder} variable
-        if (workingDir.includes('${workspaceFolder}')) {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (workspaceFolder) {
-                workingDir = workingDir.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
-            } else {
-                vscode.window.showErrorMessage('No workspace folder open');
-                return;
-            }
-        }
+    console.log('Resolved working dir:', workingDir);
+    console.log('Running command:', `"${enginePath}"`);
 
-        // Create and show terminal
-        const terminal = vscode.window.createTerminal({
-            name: 'XS Engine',
-            cwd: workingDir
-        });
-        
-        terminal.show();
-        terminal.sendText(`"${enginePath}"`);
+    // Create and show terminal
+    const terminal = vscode.window.createTerminal({
+        name: 'XS Engine',
+        cwd: workingDir
     });
-
+    
+    terminal.show();
+   	terminal.sendText(`& "${enginePath}"`);
+    
+    console.log('Terminal command sent');
+	});
     context.subscriptions.push(runEngine);
 }
 
