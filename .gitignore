@@ -7,7 +7,6 @@ out/
 *.vsix
 
 # IDE settings (optional - remove .vscode/ if you want to share workspace settings)
-.vscode/
 .vscode-test.mjs
 
 # OS files
