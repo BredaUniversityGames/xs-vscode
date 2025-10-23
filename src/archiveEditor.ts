@@ -1,56 +1,64 @@
 import * as vscode from 'vscode';
 
-interface ContentHeader {
-    filePath: string;
-    fileOffset: bigint;
-    fileSize: bigint;
-    fileSizeCompressed: bigint;
+interface PackageEntry {
+    relativePath: string;
+    uncompressedSize: bigint;
+    dataOffset: bigint;
+    dataLength: bigint;
+    isCompressed: boolean;
 }
 
 class ArchiveParser {
-    private static readonly MAX_PATH = 260;
-
-    static async parse(uri: vscode.Uri): Promise<ContentHeader[]> {
+    static async parse(uri: vscode.Uri): Promise<PackageEntry[]> {
         const data = await vscode.workspace.fs.readFile(uri);
         const buffer = Buffer.from(data);
-
+        
         let offset = 0;
 
+        // Helper to read uint64_t (little-endian)
+        const readUInt64 = (): bigint => {
+            const value = buffer.readBigUInt64LE(offset);
+            offset += 8;
+            return value;
+        };
+
+        // Helper to read string (Cereal format: length + data)
+        const readString = (): string => {
+            const length = Number(readUInt64());
+            const str = buffer.toString('utf8', offset, offset + length);
+            offset += length;
+            return str;
+        };
+
+        // Helper to read bool
+        const readBool = (): boolean => {
+            const value = buffer[offset] !== 0;
+            offset += 1;
+            return value;
+        };
+
         // Read entry count
-        const entryCount = buffer.readBigUInt64LE(offset);
-        offset += 8;
+        const entryCount = Number(readUInt64());
+        console.log(`Archive contains ${entryCount} entries`);
 
-        const entries: ContentHeader[] = [];
+        const entries: PackageEntry[] = [];
 
-        for (let i = 0; i < Number(entryCount); i++) {
-            // Read file path (260 bytes)
-            const pathBuffer = buffer.slice(offset, offset + this.MAX_PATH);
-            const nullIndex = pathBuffer.indexOf(0);
-            const filePath = pathBuffer.toString('utf8', 0, nullIndex > 0 ? nullIndex : this.MAX_PATH);
-            offset += this.MAX_PATH;
-
-            // Skip 4 bytes of padding (struct alignment)
-            offset += 4;
-
-            // Read uint64 values
-            const fileOffset = buffer.readBigUInt64LE(offset);
-            offset += 8;
-            const fileSize = buffer.readBigUInt64LE(offset);
-            offset += 8;
-            const fileSizeCompressed = buffer.readBigUInt64LE(offset);
-            offset += 8;
-
-            entries.push({
-                filePath,
-                fileOffset,
-                fileSize,
-                fileSizeCompressed
-            });
-
-            // Skip file data
-            const dataSize = fileSizeCompressed > 0n ? fileSizeCompressed : fileSize;
-            offset += Number(dataSize);
+        // Read all entries
+        for (let i = 0; i < entryCount; i++) {
+            const entry: PackageEntry = {
+                relativePath: readString(),
+                uncompressedSize: readUInt64(),
+                dataOffset: readUInt64(),
+                dataLength: readUInt64(),
+                isCompressed: readBool()
+            };
+            
+            entries.push(entry);
+            console.log(`${i + 1}. ${entry.relativePath} (${entry.uncompressedSize} bytes, compressed: ${entry.isCompressed})`);
         }
+
+        // offset now points to start of data section
+        console.log(`Data section starts at offset: ${offset}`);
 
         return entries;
     }
@@ -84,25 +92,25 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
         }
     }
 
-    private getHtmlContent(entries: ContentHeader[], uri: vscode.Uri): string {
-        const totalSize = entries.reduce((sum, e) => sum + Number(e.fileSize), 0);
-        const totalCompressed = entries.reduce((sum, e) => sum + Number(e.fileSizeCompressed > 0n ? e.fileSizeCompressed : e.fileSize), 0);
+    private getHtmlContent(entries: PackageEntry[], uri: vscode.Uri): string {
+        const totalSize = entries.reduce((sum, e) => sum + Number(e.uncompressedSize), 0);
+        const totalData = entries.reduce((sum, e) => sum + Number(e.dataLength), 0);
 
         const rows = entries.map(entry => {
-            const fileName = entry.filePath.split(/[/\\]/).pop() || entry.filePath;
-            const directory = entry.filePath.substring(0, entry.filePath.lastIndexOf('/'));
-            const sizeKB = (Number(entry.fileSize) / 1024).toFixed(1);
-            const isCompressed = entry.fileSizeCompressed > 0n;
+            const sizeKB = (Number(entry.uncompressedSize) / 1024).toFixed(1);
+            const dataKB = (Number(entry.dataLength) / 1024).toFixed(1);
             
             return `
                 <tr>
-                    <td class="file-name">${this.escapeHtml(fileName)}</td>
-                    <td class="directory">${this.escapeHtml(directory)}</td>
+                    <td class="path">${this.escapeHtml(entry.relativePath)}</td>
                     <td class="size">${sizeKB} KB</td>
-                    <td class="compressed">${isCompressed ? '✓' : ''}</td>
+                    <td class="size">${dataKB} KB</td>
+                    <td class="compressed">${entry.isCompressed ? '✓' : ''}</td>
                 </tr>
             `;
         }).join('');
+
+        const compressionRatio = totalSize > 0 ? ((1 - totalData / totalSize) * 100).toFixed(1) : '0.0';
 
         return `<!DOCTYPE html>
         <html>
@@ -160,12 +168,8 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
                 tr:hover {
                     background: var(--vscode-list-hoverBackground);
                 }
-                .file-name {
-                    font-weight: 500;
-                }
-                .directory {
-                    color: var(--vscode-descriptionForeground);
-                    font-size: 0.9em;
+                .path {
+                    font-family: var(--vscode-editor-font-family);
                 }
                 .size {
                     text-align: right;
@@ -186,25 +190,25 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
                         <span>${entries.length}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Total Size:</span>
+                        <span class="stat-label">Uncompressed:</span>
                         <span>${(totalSize / 1024).toFixed(1)} KB</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Compressed:</span>
-                        <span>${(totalCompressed / 1024).toFixed(1)} KB</span>
+                        <span class="stat-label">Package Size:</span>
+                        <span>${(totalData / 1024).toFixed(1)} KB</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Compression:</span>
-                        <span>${((1 - totalCompressed / totalSize) * 100).toFixed(1)}%</span>
+                        <span>${compressionRatio}%</span>
                     </div>
                 </div>
             </div>
             <table>
                 <thead>
                     <tr>
-                        <th>File Name</th>
-                        <th>Directory</th>
-                        <th style="text-align: right">Size</th>
+                        <th>Path</th>
+                        <th style="text-align: right">Uncompressed</th>
+                        <th style="text-align: right">Packed</th>
                         <th style="text-align: center">Compressed</th>
                     </tr>
                 </thead>
