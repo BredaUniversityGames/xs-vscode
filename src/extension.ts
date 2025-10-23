@@ -57,29 +57,32 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
     }
 
-    // Resolve ${workspaceFolder} variable
+    // Get current workspace folder
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder open');
+        return;
+    }
+    const projectFolder = workspaceFolder.uri.fsPath;
+
+    // Resolve ${workspaceFolder} variable in working directory
     if (workingDir.includes('${workspaceFolder}')) {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (workspaceFolder) {
-            workingDir = workingDir.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
-        } else {
-            vscode.window.showErrorMessage('No workspace folder open');
-            return;
-        }
+        workingDir = workingDir.replace('${workspaceFolder}', projectFolder);
     }
 
     console.log('Resolved working dir:', workingDir);
-    console.log('Running command:', `"${enginePath}"`);
+    console.log('Project folder:', projectFolder);
+    console.log('Running command:', `"${enginePath}" run "${projectFolder}"`);
 
     // Create and show terminal
     const terminal = vscode.window.createTerminal({
         name: 'XS Engine',
         cwd: workingDir
     });
-    
+
     terminal.show();
-   	terminal.sendText(`& "${enginePath}"`);
-    
+   	terminal.sendText(`& "${enginePath}" run "${projectFolder}"`);
+
     console.log('Terminal command sent');
 	});
     context.subscriptions.push(runEngine);
