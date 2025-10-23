@@ -29,6 +29,16 @@ export async function activate(context: vscode.ExtensionContext) {
         ArchiveEditorProvider.register(context)
     );
 
+    // Register launch configuration provider (debugging support to be added later)
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider('xs', new XsLaunchConfigurationProvider())
+    );
+
+    // Register launch handler
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory('xs', new XsLaunchHandler())
+    );
+
     // Create status bar items (on the left with low priority to not hide git info)
     const runStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
@@ -220,6 +230,101 @@ function getLanguageId(filePath: string): string {
         '.vert': 'glsl'
     };
     return langMap[ext] || 'plaintext';
+}
+
+// Launch Configuration Provider
+// Provides launch configurations for the Run and Debug panel (F5 support)
+// Note: This is launch-only. Actual debugging support (breakpoints, etc.) will be added later.
+class XsLaunchConfigurationProvider implements vscode.DebugConfigurationProvider {
+    resolveDebugConfiguration(
+        folder: vscode.WorkspaceFolder | undefined,
+        config: vscode.DebugConfiguration,
+        token?: vscode.CancellationToken
+    ): vscode.ProviderResult<vscode.DebugConfiguration> {
+        // If no configuration is provided, create a default one
+        if (!config.type && !config.request && !config.name) {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                config.type = 'xs';
+                config.name = 'xs: Run Game';
+                config.request = 'launch';
+                config.projectFolder = '${workspaceFolder}';
+                config.packageFirst = false;
+            }
+        }
+
+        if (!config.projectFolder) {
+            config.projectFolder = '${workspaceFolder}';
+        }
+
+        return config;
+    }
+}
+
+// Launch Handler
+// Handles launching the game when F5 is pressed or Run button is clicked
+class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
+    createDebugAdapterDescriptor(
+        session: vscode.DebugSession,
+        executable: vscode.DebugAdapterExecutable | undefined
+    ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+        const config = session.configuration;
+        const packageFirst = config.packageFirst || false;
+
+        // Get engine configuration
+        const vsConfig = vscode.workspace.getConfiguration('xs');
+        let enginePath = vsConfig.get<string>('enginePath', '');
+        let workingDir = vsConfig.get<string>('workingDirectory', '${workspaceFolder}');
+
+        if (!enginePath) {
+            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
+            return null;
+        }
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return null;
+        }
+
+        const projectFolder = config.projectFolder.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
+
+        // Resolve working directory
+        if (workingDir.includes('${workspaceFolder}')) {
+            workingDir = workingDir.replace('${workspaceFolder}', projectFolder);
+        }
+
+        if (packageFirst) {
+            // Package & Run
+            const folderName = path.basename(projectFolder);
+            const packageDir = path.join(projectFolder, '.package');
+            const outputPath = path.join(packageDir, `${folderName}.xs`);
+
+            // Create .package directory
+            const packageDirUri = vscode.Uri.file(packageDir);
+            vscode.workspace.fs.createDirectory(packageDirUri);
+
+            const terminal = vscode.window.createTerminal({
+                name: 'XS Package & Run',
+                cwd: workingDir
+            });
+
+            terminal.show();
+            terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`);
+        } else {
+            // Just Run
+            const terminal = vscode.window.createTerminal({
+                name: 'XS Engine',
+                cwd: workingDir
+            });
+
+            terminal.show();
+            terminal.sendText(`& "${enginePath}" run "${projectFolder}"`);
+        }
+
+        // Return null since we're just launching, not debugging
+        return null;
+    }
 }
 
 export function deactivate() {}

@@ -74,6 +74,71 @@
         "description": "Working directory when running the engine (use ${workspaceFolder} for current workspace)"
       }
     }
+  },
+    "debuggers": [
+      {
+        "type": "xs",
+        "label": "xs Game Engine",
+        "languages": ["wren"],
+        "configurationAttributes": {
+          "launch": {
+            "required": [],
+            "properties": {
+              "projectFolder": {
+                "type": "string",
+                "description": "Path to the game project folder",
+                "default": "${workspaceFolder}"
+              },
+              "packageFirst": {
+                "type": "boolean",
+                "description": "Package the game before running",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "xs",
+            "request": "launch",
+            "name": "Run Game",
+            "projectFolder": "${workspaceFolder}",
+            "packageFirst": false
+          },
+          {
+            "type": "xs",
+            "request": "launch",
+            "name": "Package & Run",
+            "projectFolder": "${workspaceFolder}",
+            "packageFirst": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "xs: Run Game",
+            "description": "Launch the game from source folder",
+            "body": {
+              "type": "xs",
+              "request": "launch",
+              "name": "Run Game",
+              "projectFolder": "^\"\\${workspaceFolder}\"",
+              "packageFirst": false
+            }
+          },
+          {
+            "label": "xs: Package & Run",
+            "description": "Package and launch the game from .xs archive",
+            "body": {
+              "type": "xs",
+              "request": "launch",
+              "name": "Package & Run",
+              "projectFolder": "^\"\\${workspaceFolder}\"",
+              "packageFirst": true
+            }
+          }
+        ]
+      }
+    ]
   }
   },
   "scripts": {
