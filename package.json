@@ -1,7 +1,7 @@
 {
   "name": "xs-vscode",
   "displayName": "xs-vscode",
-  "description": "Asset preview and tools for the xs game engine",
+  "description": "Package viewer and tools for the xs game engine",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.105.0"
@@ -30,9 +30,9 @@
     ],
     "languages": [
       {
-        "id": "xs-archive",
+        "id": "xs-package",
         "extensions": [".xs"],
-        "aliases": ["xs archive"],
+        "aliases": ["xs package"],
         "icon": {
           "light": "./media/icons/xs-file.svg",
           "dark": "./media/icons/xs-file.svg"
@@ -50,8 +50,8 @@
     ],
     "customEditors": [
       {
-        "viewType": "xs.archiveViewer",
-        "displayName": "XS Archive Viewer",
+        "viewType": "xs.packageViewer",
+        "displayName": "XS Package Viewer",
         "selector": [
           {
             "filenamePattern": "*.xs"
@@ -127,7 +127,7 @@
           },
           {
             "label": "xs: Package & Run",
-            "description": "Package and launch the game from .xs archive",
+            "description": "Package and launch the game from .xs package",
             "body": {
               "type": "xs",
               "request": "launch",

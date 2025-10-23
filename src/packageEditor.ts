@@ -8,11 +8,11 @@ interface PackageEntry {
     isCompressed: boolean;
 }
 
-class ArchiveParser {
+class PackageParser {
     static async parse(uri: vscode.Uri): Promise<PackageEntry[]> {
         const data = await vscode.workspace.fs.readFile(uri);
         const buffer = Buffer.from(data);
-        
+
         let offset = 0;
 
         // Helper to read uint64_t (little-endian)
@@ -39,7 +39,7 @@ class ArchiveParser {
 
         // Read entry count
         const entryCount = Number(readUInt64());
-        console.log(`Archive contains ${entryCount} entries`);
+        console.log(`Package contains ${entryCount} entries`);
 
         const entries: PackageEntry[] = [];
 
@@ -52,7 +52,7 @@ class ArchiveParser {
                 dataLength: readUInt64(),
                 isCompressed: readBool()
             };
-            
+
             entries.push(entry);
             console.log(`${i + 1}. ${entry.relativePath} (${entry.uncompressedSize} bytes, compressed: ${entry.isCompressed})`);
         }
@@ -64,10 +64,10 @@ class ArchiveParser {
     }
 }
 
-export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvider {
+export class PackageEditorProvider implements vscode.CustomReadonlyEditorProvider {
     public static register(context: vscode.ExtensionContext): vscode.Disposable {
-        const provider = new ArchiveEditorProvider(context);
-        return vscode.window.registerCustomEditorProvider('xs.archiveViewer', provider);
+        const provider = new PackageEditorProvider(context);
+        return vscode.window.registerCustomEditorProvider('xs.packageViewer', provider);
     }
 
     constructor(private readonly context: vscode.ExtensionContext) {}
@@ -85,7 +85,7 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
         };
 
         try {
-            const entries = await ArchiveParser.parse(document.uri);
+            const entries = await PackageParser.parse(document.uri);
             webviewPanel.webview.html = this.getHtmlContent(entries, document.uri);
         } catch (error) {
             webviewPanel.webview.html = this.getErrorHtml(error);
@@ -99,7 +99,7 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
         const rows = entries.map(entry => {
             const sizeKB = (Number(entry.uncompressedSize) / 1024).toFixed(1);
             const dataKB = (Number(entry.dataLength) / 1024).toFixed(1);
-            
+
             return `
                 <tr>
                     <td class="path">${this.escapeHtml(entry.relativePath)}</td>
@@ -183,7 +183,7 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
         </head>
         <body>
             <div class="header">
-                <h2>Archive Contents</h2>
+                <h2>Package Contents</h2>
                 <div class="stats">
                     <div class="stat-item">
                         <span class="stat-label">Files:</span>
@@ -224,7 +224,7 @@ export class ArchiveEditorProvider implements vscode.CustomReadonlyEditorProvide
         return `<!DOCTYPE html>
         <html>
         <body style="padding: 20px; font-family: var(--vscode-font-family);">
-            <h2 style="color: var(--vscode-errorForeground);">Failed to load archive</h2>
+            <h2 style="color: var(--vscode-errorForeground);">Failed to load package</h2>
             <p>${this.escapeHtml(String(error))}</p>
         </body>
         </html>`;

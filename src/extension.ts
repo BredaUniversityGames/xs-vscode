@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ArchiveEditorProvider } from './archiveEditor';
+import { PackageEditorProvider } from './packageEditor';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
@@ -24,9 +24,9 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     }
 
-     // Register archive viewer
+     // Register package viewer
     context.subscriptions.push(
-        ArchiveEditorProvider.register(context)
+        PackageEditorProvider.register(context)
     );
 
     // Register launch configuration provider (debugging support to be added later)
@@ -59,7 +59,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     packageAndRunStatusBarItem.command = 'xs-vscode.packageAndRun';
     packageAndRunStatusBarItem.text = '$(package) Package & Run';
-    packageAndRunStatusBarItem.tooltip = 'Package and run the game from .xs archive';
+    packageAndRunStatusBarItem.tooltip = 'Package and run the game from .xs package';
     packageAndRunStatusBarItem.show();
 
     context.subscriptions.push(packageAndRunStatusBarItem);
