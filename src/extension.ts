@@ -29,30 +29,30 @@ export async function activate(context: vscode.ExtensionContext) {
         ArchiveEditorProvider.register(context)
     );
 
-    // Create status bar items
+    // Create status bar items (on the left with low priority to not hide git info)
     const runStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
-        100 // Priority (higher = more left)
+        1 // Low priority (appears after git info)
     );
 
     runStatusBarItem.command = 'xs-vscode.runEngine';
-    runStatusBarItem.text = '$(play) Run Game';
+    runStatusBarItem.text = '$(debug-alt) Run';
     runStatusBarItem.tooltip = 'Run current folder as an xs game';
     runStatusBarItem.show();
 
     context.subscriptions.push(runStatusBarItem);
 
-    const packageStatusBarItem = vscode.window.createStatusBarItem(
+    const packageAndRunStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
-        99 // Priority (slightly lower, so it appears to the right)
+        0 // Lowest priority (appears rightmost on left side)
     );
 
-    packageStatusBarItem.command = 'xs-vscode.packageGame';
-    packageStatusBarItem.text = '$(package) Package';
-    packageStatusBarItem.tooltip = 'Package current folder as .xs archive';
-    packageStatusBarItem.show();
+    packageAndRunStatusBarItem.command = 'xs-vscode.packageAndRun';
+    packageAndRunStatusBarItem.text = '$(package) Package & Run';
+    packageAndRunStatusBarItem.tooltip = 'Package and run the game from .xs archive';
+    packageAndRunStatusBarItem.show();
 
-    context.subscriptions.push(packageStatusBarItem);
+    context.subscriptions.push(packageAndRunStatusBarItem);
 
     // Run Engine command
    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
@@ -152,6 +152,61 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Packaging ${folderName}...`);
     });
     context.subscriptions.push(packageGame);
+
+    // Package and Run command
+    let packageAndRun = vscode.commands.registerCommand('xs-vscode.packageAndRun', () => {
+        const config = vscode.workspace.getConfiguration('xs');
+        let enginePath = config.get<string>('enginePath', '');
+        let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
+
+        // Validate engine path
+        if (!enginePath) {
+            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
+            return;
+        }
+
+        // Get current workspace folder
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        const projectFolder = workspaceFolder.uri.fsPath;
+        const folderName = path.basename(projectFolder);
+        const packageDir = path.join(projectFolder, '.package');
+        const outputPath = path.join(packageDir, `${folderName}.xs`);
+
+        // Create .package directory if it doesn't exist
+        const packageDirUri = vscode.Uri.file(packageDir);
+        vscode.workspace.fs.createDirectory(packageDirUri).then(() => {
+            console.log('.package directory ensured');
+        }, (error) => {
+            console.log('.package directory already exists or error:', error);
+        });
+
+        // Resolve ${workspaceFolder} variable in working directory
+        if (workingDir.includes('${workspaceFolder}')) {
+            workingDir = workingDir.replace('${workspaceFolder}', projectFolder);
+        }
+
+        console.log('Project folder:', projectFolder);
+        console.log('Folder name:', folderName);
+        console.log('Output path:', outputPath);
+        console.log('Running commands: package then run');
+
+        // Create and show terminal
+        const terminal = vscode.window.createTerminal({
+            name: 'XS Package & Run',
+            cwd: workingDir
+        });
+
+        terminal.show();
+        // Chain both commands: package first, then run if successful
+        terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`);
+
+        vscode.window.showInformationMessage(`Packaging and running ${folderName}...`);
+    });
+    context.subscriptions.push(packageAndRun);
 }
 
 

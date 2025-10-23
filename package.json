@@ -22,6 +22,10 @@
       {
         "command": "xs-vscode.packageGame",
         "title": "xs: package game"
+      },
+      {
+        "command": "xs-vscode.packageAndRun",
+        "title": "xs: package and run"
       }
     ],
     "languages": [
