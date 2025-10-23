@@ -18,6 +18,10 @@
       {
         "command": "xs-vscode.runEngine",
         "title": "xs: run engine"
+      },
+      {
+        "command": "xs-vscode.packageGame",
+        "title": "xs: package game"
       }
     ],
     "languages": [

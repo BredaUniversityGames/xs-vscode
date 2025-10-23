@@ -29,18 +29,30 @@ export async function activate(context: vscode.ExtensionContext) {
         ArchiveEditorProvider.register(context)
     );
 
-    // Create status bar item
-    const statusBarItem = vscode.window.createStatusBarItem(
+    // Create status bar items
+    const runStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
-        0 // Priority (higher = more left)
+        100 // Priority (higher = more left)
     );
-    
-    statusBarItem.command = 'xs-vscode.runEngine';
-    statusBarItem.text = '$(play) Run Game (xs)';
-    statusBarItem.tooltip = 'Run current folder as an xs game';
-    statusBarItem.show();
-    
-    context.subscriptions.push(statusBarItem);
+
+    runStatusBarItem.command = 'xs-vscode.runEngine';
+    runStatusBarItem.text = '$(play) Run Game';
+    runStatusBarItem.tooltip = 'Run current folder as an xs game';
+    runStatusBarItem.show();
+
+    context.subscriptions.push(runStatusBarItem);
+
+    const packageStatusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Left,
+        99 // Priority (slightly lower, so it appears to the right)
+    );
+
+    packageStatusBarItem.command = 'xs-vscode.packageGame';
+    packageStatusBarItem.text = '$(package) Package';
+    packageStatusBarItem.tooltip = 'Package current folder as .xs archive';
+    packageStatusBarItem.show();
+
+    context.subscriptions.push(packageStatusBarItem);
 
     // Run Engine command
    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
@@ -86,6 +98,60 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('Terminal command sent');
 	});
     context.subscriptions.push(runEngine);
+
+    // Package Game command
+    let packageGame = vscode.commands.registerCommand('xs-vscode.packageGame', () => {
+        const config = vscode.workspace.getConfiguration('xs');
+        let enginePath = config.get<string>('enginePath', '');
+        let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
+
+        // Validate engine path
+        if (!enginePath) {
+            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
+            return;
+        }
+
+        // Get current workspace folder
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        const projectFolder = workspaceFolder.uri.fsPath;
+        const folderName = path.basename(projectFolder);
+        const packageDir = path.join(projectFolder, '.package');
+        const outputPath = path.join(packageDir, `${folderName}.xs`);
+
+        // Create .package directory if it doesn't exist
+        const packageDirUri = vscode.Uri.file(packageDir);
+        vscode.workspace.fs.createDirectory(packageDirUri).then(() => {
+            console.log('.package directory ensured');
+        }, (error) => {
+            console.log('.package directory already exists or error:', error);
+        });
+
+        // Resolve ${workspaceFolder} variable in working directory
+        if (workingDir.includes('${workspaceFolder}')) {
+            workingDir = workingDir.replace('${workspaceFolder}', projectFolder);
+        }
+
+        console.log('Project folder:', projectFolder);
+        console.log('Folder name:', folderName);
+        console.log('Output path:', outputPath);
+        console.log('Running command:', `"${enginePath}" package "${projectFolder}" "${outputPath}"`);
+
+        // Create and show terminal
+        const terminal = vscode.window.createTerminal({
+            name: 'XS Package',
+            cwd: workingDir
+        });
+
+        terminal.show();
+        terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}"`);
+
+        vscode.window.showInformationMessage(`Packaging ${folderName}...`);
+    });
+    context.subscriptions.push(packageGame);
 }
 
 
