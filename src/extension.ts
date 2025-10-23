@@ -5,30 +5,49 @@ import { PackageEditorProvider } from './packageEditor';
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
 
-     // Optional: Verify this is actually an XS project
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder) {
-        const projectJsonUri = vscode.Uri.joinPath(workspaceFolder.uri, 'project.json');
-        try {
-            const content = await vscode.workspace.fs.readFile(projectJsonUri);
-            const projectData = JSON.parse(content.toString());
-            
-            // Check for XS-specific fields if needed
-            if (!projectData.Main) {
-                return;
-            }
-            
-            console.log('xs project detected. xs-vscode activated.');
-        } catch (e) {
-            console.log('project.json not found or invalid');
-        }
+    // Validate this is an XS project
+    if (!await validateXsProject()) {
+        return;
     }
 
-     // Register package viewer
+    // Register all providers and UI elements
+    registerEditors(context);
+    registerLaunchProvider(context);
+    createStatusBarItems(context);
+    registerCommands(context);
+}
+
+async function validateXsProject(): Promise<boolean> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return false;
+    }
+
+    const projectJsonUri = vscode.Uri.joinPath(workspaceFolder.uri, 'project.json');
+    try {
+        const content = await vscode.workspace.fs.readFile(projectJsonUri);
+        const projectData = JSON.parse(content.toString());
+
+        // Check for XS-specific fields
+        if (!projectData.Main) {
+            return false;
+        }
+
+        console.log('xs project detected. xs-vscode activated.');
+        return true;
+    } catch (e) {
+        console.log('project.json not found or invalid');
+        return false;
+    }
+}
+
+function registerEditors(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         PackageEditorProvider.register(context)
     );
+}
 
+function registerLaunchProvider(context: vscode.ExtensionContext) {
     // Register launch configuration provider (debugging support to be added later)
     context.subscriptions.push(
         vscode.debug.registerDebugConfigurationProvider('xs', new XsLaunchConfigurationProvider())
@@ -38,7 +57,9 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.debug.registerDebugAdapterDescriptorFactory('xs', new XsLaunchHandler())
     );
+}
 
+function createStatusBarItems(context: vscode.ExtensionContext) {
     // Create status bar items (on the left with low priority to not hide git info)
     const runStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
@@ -63,6 +84,9 @@ export async function activate(context: vscode.ExtensionContext) {
     packageAndRunStatusBarItem.show();
 
     context.subscriptions.push(packageAndRunStatusBarItem);
+}
+
+function registerCommands(context: vscode.ExtensionContext) {
 
     // Run Engine command
    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
