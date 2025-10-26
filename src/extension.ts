@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { PackageEditorProvider } from './packageEditor';
+import { AnimationEditorProvider } from './animationEditor';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
@@ -44,6 +45,9 @@ async function validateXsProject(): Promise<boolean> {
 function registerEditors(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         PackageEditorProvider.register(context)
+    );
+    context.subscriptions.push(
+        AnimationEditorProvider.register(context)
     );
 }
 

@@ -58,6 +58,16 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "xs.animationEditor",
+        "displayName": "XS Animation Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.xsanim"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "configuration": {
@@ -139,7 +149,6 @@
         ]
       }
     ]
-  }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
