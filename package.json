@@ -31,8 +31,12 @@
     "languages": [
       {
         "id": "xs-package",
-        "extensions": [".xs"],
-        "aliases": ["xs package"],
+        "extensions": [
+          ".xs"
+        ],
+        "aliases": [
+          "xs package"
+        ],
         "icon": {
           "light": "./media/icons/xs-file.svg",
           "dark": "./media/icons/xs-file.svg"
@@ -40,8 +44,12 @@
       },
       {
         "id": "xs-animation",
-        "extensions": [".xsanim"],
-        "aliases": ["xs animation"],
+        "extensions": [
+          ".xsanim"
+        ],
+        "aliases": [
+          "xs animation"
+        ],
         "icon": {
           "light": "./media/icons/xsanim-file.svg",
           "dark": "./media/icons/xsanim-file.svg"
@@ -71,25 +79,27 @@
       }
     ],
     "configuration": {
-    "title": "xs engine",
-    "properties": {
-      "xs.enginePath": {
-        "type": "string",
-        "default": "",
-        "description": "Path to xs.exe executable (e.g., C:\\path\\to\\xs.exe)"
-      },
-      "xs.workingDirectory": {
-        "type": "string",
-        "default": "${workspaceFolder}",
-        "description": "Working directory when running the engine (use ${workspaceFolder} for current workspace)"
+      "title": "xs engine",
+      "properties": {
+        "xs.enginePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to xs.exe executable (e.g., C:\\path\\to\\xs.exe)"
+        },
+        "xs.workingDirectory": {
+          "type": "string",
+          "default": "${workspaceFolder}",
+          "description": "Working directory when running the engine (use ${workspaceFolder} for current workspace)"
+        }
       }
-    }
-  },
+    },
     "debuggers": [
       {
         "type": "xs",
         "label": "xs Game Engine",
-        "languages": ["wren"],
+        "languages": [
+          "wren"
+        ],
         "configurationAttributes": {
           "launch": {
             "required": [],
@@ -165,16 +175,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.105.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.105.0",
     "@typescript-eslint/eslint-plugin": "^8.45.0",
     "@typescript-eslint/parser": "^8.45.0",
-    "eslint": "^9.36.0",
-    "esbuild": "^0.25.10",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.4.0"
   }
 }

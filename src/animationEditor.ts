@@ -27,7 +27,10 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
         _token: vscode.CancellationToken
     ): Promise<void> {
         webviewPanel.webview.options = {
-            enableScripts: true
+            enableScripts: true,
+            localResourceRoots: [
+                vscode.Uri.joinPath(this.context.extensionUri, 'node_modules', '@vscode', 'webview-ui-toolkit', 'dist')
+            ]
         };
 
         // Load the animation data
@@ -57,18 +60,34 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
             };
         }
 
+        // Get toolkit URI
+        const toolkitUri = webviewPanel.webview.asWebviewUri(
+            vscode.Uri.joinPath(
+                this.context.extensionUri,
+                'node_modules',
+                '@vscode',
+                'webview-ui-toolkit',
+                'dist',
+                'toolkit.js'
+            )
+        );
+
         // Update webview content
         const updateWebview = () => {
-            webviewPanel.webview.html = this.getHtmlContent(webviewPanel.webview, animationData);
+            webviewPanel.webview.html = this.getHtmlContent(webviewPanel.webview, animationData, toolkitUri);
         };
 
         updateWebview();
+
+        let isUpdating = false; // Track if we're updating to avoid refresh loop
 
         // Handle messages from the webview
         webviewPanel.webview.onDidReceiveMessage(async message => {
             switch (message.type) {
                 case 'update':
+                    isUpdating = true;
                     this.updateTextDocument(document, message.data);
+                    setTimeout(() => { isUpdating = false; }, 100);
                     break;
                 case 'browse':
                     // Find all image files in the workspace
@@ -112,9 +131,9 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
             }
         });
 
-        // Update webview when document changes
+        // Update webview when document changes (but not if we initiated the change)
         const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
-            if (e.document.uri.toString() === document.uri.toString()) {
+            if (e.document.uri.toString() === document.uri.toString() && !isUpdating) {
                 try {
                     const text = e.document.getText();
                     if (text.trim().length > 0) {
@@ -142,7 +161,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
         vscode.workspace.applyEdit(edit);
     }
 
-    private getHtmlContent(webview: vscode.Webview, data: AnimationData): string {
+    private getHtmlContent(webview: vscode.Webview, data: AnimationData, toolkitUri: vscode.Uri): string {
         const animationEntries = Object.entries(data.animations);
 
         return `<!DOCTYPE html>
@@ -150,203 +169,425 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <script type="module" src="${toolkitUri}"></script>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@vscode/codicons@0.0.35/dist/codicon.css">
             <style>
                 body {
-                    font-family: var(--vscode-font-family);
-                    color: var(--vscode-foreground);
-                    background: var(--vscode-editor-background);
-                    padding: 20px;
+                    padding: 0;
                     margin: 0;
-                }
-                .section {
-                    margin-bottom: 30px;
-                    padding-bottom: 20px;
-                    border-bottom: 1px solid var(--vscode-panel-border);
-                }
-                .section h2 {
-                    margin: 0 0 15px 0;
-                    color: var(--vscode-foreground);
-                    font-size: 1.2em;
-                }
-                .form-group {
-                    margin-bottom: 15px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-                .form-group label {
-                    min-width: 100px;
-                    font-weight: 600;
-                }
-                .form-group input {
-                    flex: 1;
-                    background: var(--vscode-input-background);
-                    color: var(--vscode-input-foreground);
-                    border: 1px solid var(--vscode-input-border);
-                    padding: 6px 8px;
-                    font-family: var(--vscode-font-family);
-                    font-size: 13px;
-                }
-                .form-group input:focus {
-                    outline: 1px solid var(--vscode-focusBorder);
-                }
-                button {
-                    background: var(--vscode-button-background);
-                    color: var(--vscode-button-foreground);
-                    border: none;
-                    padding: 6px 14px;
-                    cursor: pointer;
-                    font-family: var(--vscode-font-family);
-                    font-size: 13px;
-                }
-                button:hover {
-                    background: var(--vscode-button-hoverBackground);
-                }
-                button.secondary {
-                    background: var(--vscode-button-secondaryBackground);
-                    color: var(--vscode-button-secondaryForeground);
-                }
-                button.secondary:hover {
-                    background: var(--vscode-button-secondaryHoverBackground);
-                }
-                .animation-list {
+                    height: 100vh;
+                    overflow: hidden;
                     display: flex;
                     flex-direction: column;
-                    gap: 15px;
+                    border-left: 1px solid var(--vscode-panel-border);
                 }
-                .animation-item {
-                    background: var(--vscode-editor-inactiveSelectionBackground);
-                    padding: 15px;
-                    border-radius: 4px;
+
+                /* Top Bar */
+                .top-bar {
+                    display: flex;
+                    gap: 12px;
+                    padding: 8px 12px;
+                    background: var(--vscode-editorGroupHeader-tabsBackground);
+                    align-items: center;
+                    border-bottom: 1px solid var(--vscode-panel-border);
                 }
-                .animation-header {
+
+                .top-bar-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .top-bar-group label {
+                    font-size: 12px;
+                    white-space: nowrap;
+                }
+
+                .top-bar-group input {
+                    background: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+                    padding: 4px 8px;
+                    font-family: var(--vscode-font-family);
+                    font-size: 13px;
+                    outline: none;
+                    border-radius: 2px;
+                }
+
+                .top-bar-group input:focus {
+                    outline: 1px solid var(--vscode-focusBorder);
+                    outline-offset: -1px;
+                }
+
+                .top-bar-group input.image-path {
+                    width: 350px;
+                }
+
+                .top-bar-group input.small {
+                    width: 45px;
+                    text-align: center;
+                }
+
+                /* Main Content Area */
+                .main-content {
+                    display: flex;
+                    flex: 1;
+                    overflow: hidden;
+                }
+
+                /* Animation List Panel */
+                .animation-list-panel {
+                    width: 250px;
+                    background: var(--vscode-editor-background);
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .animation-list-header {
+                    padding: 8px 12px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 10px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--vscode-foreground);
                 }
-                .animation-header h3 {
-                    margin: 0;
-                    font-size: 1em;
-                    font-family: var(--vscode-editor-font-family);
-                }
-                .animation-frames {
-                    font-family: var(--vscode-editor-font-family);
-                    color: var(--vscode-descriptionForeground);
-                    font-size: 0.9em;
-                }
-                .empty-state {
-                    text-align: center;
-                    padding: 40px;
-                    color: var(--vscode-descriptionForeground);
-                }
-                .button-group {
+
+                .animation-list-buttons {
                     display: flex;
+                    gap: 4px;
+                }
+
+                .animation-list {
+                    flex: 1;
+                    overflow-y: auto;
+                }
+
+                .animation-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 6px 12px;
+                    cursor: pointer;
                     gap: 8px;
+                    user-select: none;
+                }
+
+                .animation-item:hover {
+                    background: var(--vscode-list-hoverBackground);
+                }
+
+                .animation-item.selected {
+                    background: var(--vscode-list-activeSelectionBackground);
+                    color: var(--vscode-list-activeSelectionForeground);
+                }
+
+                .animation-color-dot {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    flex-shrink: 0;
+                }
+
+                .animation-item-name {
+                    flex: 1;
+                    font-size: 13px;
+                }
+
+                /* Resize Handle */
+                .resize-handle {
+                    width: 1px;
+                    cursor: col-resize;
+                    background: var(--vscode-panel-border);
+                    position: relative;
+                    flex-shrink: 0;
+                    padding: 0 2px;
+                    margin: 0 -2px;
+                }
+
+                .resize-handle:hover,
+                .resize-handle.resizing {
+                    background: var(--vscode-sash-hoverBorder);
+                }
+
+                .resize-handle-horizontal {
+                    height: 1px;
+                    width: 100%;
+                    cursor: row-resize;
+                    background: var(--vscode-panel-border);
+                    padding: 2px 0;
+                    margin: -2px 0;
+                }
+
+                .resize-handle-horizontal:hover,
+                .resize-handle-horizontal.resizing {
+                    background: var(--vscode-sash-hoverBorder);
+                }
+
+                /* Grid View Panel */
+                .grid-view-panel {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    background: var(--vscode-editor-background);
+                }
+
+                .grid-view-content {
+                    flex: 1;
+                    overflow: auto;
+                    padding: 16px;
+                }
+
+                .grid-placeholder {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100%;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 13px;
+                }
+
+                /* Bottom Panels Container */
+                .bottom-container {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                /* Bottom Panels */
+                .bottom-panels {
+                    height: 200px;
+                    display: flex;
+                }
+
+                /* Timeline Panel */
+                .timeline-panel {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    background: var(--vscode-editor-background);
+                }
+
+                .timeline-header {
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--vscode-foreground);
+                }
+
+                .timeline-content {
+                    flex: 1;
+                    padding: 8px;
+                    overflow-x: auto;
+                    display: flex;
+                    gap: 4px;
+                }
+
+                .timeline-placeholder {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100%;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 13px;
+                }
+
+                /* Preview Panel */
+                .preview-panel {
+                    width: 300px;
+                    display: flex;
+                    flex-direction: column;
+                    background: var(--vscode-editor-background);
+                }
+
+                .preview-header {
+                    padding: 8px 12px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--vscode-foreground);
+                }
+
+                .preview-content {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .preview-placeholder {
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 13px;
                 }
             </style>
         </head>
         <body>
-            <div class="section">
-                <h2>Sprite Sheet</h2>
-                <div class="form-group">
-                    <label>Image Path:</label>
-                    <input type="text" id="image" value="${this.escapeHtml(data.image)}" />
-                    <button onclick="browseImage()">Browse...</button>
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="top-bar-group">
+                    <label>Image</label>
+                    <input type="text" class="image-path" id="image-path" value="${this.escapeHtml(data.image)}" placeholder="Select sprite sheet..." />
+                    <vscode-button appearance="icon" aria-label="Browse" id="browse-btn">
+                        <span class="codicon codicon-folder-opened"></span>
+                    </vscode-button>
                 </div>
-                <div class="form-group">
-                    <label>Columns:</label>
-                    <input type="number" id="columns" value="${data.columns}" min="1" />
+                <div class="top-bar-group">
+                    <label>Columns</label>
+                    <input type="number" class="small" id="columns" value="${data.columns}" min="1" />
                 </div>
-                <div class="form-group">
-                    <label>Rows:</label>
-                    <input type="number" id="rows" value="${data.rows}" min="1" />
+                <div class="top-bar-group">
+                    <label>Rows</label>
+                    <input type="number" class="small" id="rows" value="${data.rows}" min="1" />
                 </div>
-                <div class="form-group">
-                    <label>FPS:</label>
-                    <input type="number" id="fps" value="${data.fps}" min="1" />
+                <div class="top-bar-group">
+                    <label>FPS</label>
+                    <input type="number" class="small" id="fps" value="${data.fps}" min="1" />
                 </div>
-                <button onclick="saveSettings()">Update Settings</button>
             </div>
 
-            <div class="section">
-                <h2>Animations</h2>
-                <div class="animation-list" id="animationList">
-                    ${animationEntries.length === 0 ? `
-                        <div class="empty-state">
-                            No animations defined yet.<br>
-                            Click "Add Animation" to create one.
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Animation List -->
+                <div class="animation-list-panel" id="animation-list-panel">
+                    <div class="animation-list-header">
+                        <span>Animations</span>
+                        <div class="animation-list-buttons">
+                            <vscode-button appearance="icon" aria-label="Add Animation" id="add-animation-btn">
+                                <span class="codicon codicon-add"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" aria-label="Remove Animation" id="remove-animation-btn">
+                                <span class="codicon codicon-remove"></span>
+                            </vscode-button>
                         </div>
-                    ` : animationEntries.map(([name, frames]) => `
-                        <div class="animation-item">
-                            <div class="animation-header">
-                                <h3>${this.escapeHtml(name)}</h3>
-                                <div class="button-group">
-                                    <button class="secondary" onclick="editAnimation('${this.escapeHtml(name)}')">Edit</button>
-                                    <button class="secondary" onclick="deleteAnimation('${this.escapeHtml(name)}')">Delete</button>
-                                </div>
-                            </div>
-                            <div class="animation-frames">Frames: [${frames.join(', ')}]</div>
-                        </div>
-                    `).join('')}
+                    </div>
+                    <div class="animation-list" id="animation-list">
+                        ${animationEntries.length === 0 ?
+                            '<div style="padding: 16px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 12px;">No animations</div>' :
+                            animationEntries.map(([name, frames], index) => {
+                                const color = this.getAnimationColor(index, animationEntries.length);
+                                return `
+                                    <div class="animation-item ${index === 0 ? 'selected' : ''}" data-name="${this.escapeHtml(name)}">
+                                        <div class="animation-color-dot" style="background: ${color};"></div>
+                                        <div class="animation-item-name">${this.escapeHtml(name)}</div>
+                                    </div>
+                                `;
+                            }).join('')
+                        }
+                    </div>
                 </div>
-                <button onclick="addAnimation()" style="margin-top: 15px;">Add Animation</button>
+
+                <!-- Resize Handle -->
+                <div class="resize-handle" id="resize-handle-left"></div>
+
+                <!-- Grid View -->
+                <div class="grid-view-panel">
+                    <div class="grid-view-content" id="grid-view">
+                        <div class="grid-placeholder">
+                            Select a sprite sheet to begin
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Horizontal Resize Handle -->
+            <div class="resize-handle resize-handle-horizontal" id="resize-handle-bottom"></div>
+
+            <!-- Bottom Panels -->
+            <div class="bottom-panels" id="bottom-panels">
+                <!-- Timeline -->
+                <div class="timeline-panel" id="timeline-panel">
+                    <div class="timeline-header">Timeline</div>
+                    <div class="timeline-content" id="timeline">
+                        <div class="timeline-placeholder">No animation selected</div>
+                    </div>
+                </div>
+
+                <!-- Resize Handle -->
+                <div class="resize-handle" id="resize-handle-preview"></div>
+
+                <!-- Preview -->
+                <div class="preview-panel" id="preview-panel">
+                    <div class="preview-header">Preview</div>
+                    <div class="preview-content" id="preview">
+                        <div class="preview-placeholder">No preview available</div>
+                    </div>
+                </div>
             </div>
 
             <script>
                 const vscode = acquireVsCodeApi();
                 let currentData = ${JSON.stringify(data)};
+                let selectedAnimation = ${animationEntries.length > 0 ? `"${this.escapeHtml(animationEntries[0][0])}"` : 'null'};
 
-                function browseImage() {
+                // Top bar event listeners
+                document.getElementById('browse-btn').addEventListener('click', () => {
                     vscode.postMessage({ type: 'browse' });
-                }
-
-                window.addEventListener('message', event => {
-                    const message = event.data;
-                    if (message.type === 'imageSelected') {
-                        document.getElementById('image').value = message.path;
-                    }
                 });
 
-                function saveSettings() {
-                    currentData.image = document.getElementById('image').value;
-                    currentData.columns = parseInt(document.getElementById('columns').value);
-                    currentData.rows = parseInt(document.getElementById('rows').value);
-                    currentData.fps = parseInt(document.getElementById('fps').value);
+                document.getElementById('image-path').addEventListener('input', (e) => {
+                    currentData.image = e.target.value;
                     updateDocument();
-                }
+                });
 
-                async function addAnimation() {
+                document.getElementById('columns').addEventListener('input', (e) => {
+                    currentData.columns = parseInt(e.target.value) || 1;
+                    updateDocument();
+                });
+
+                document.getElementById('rows').addEventListener('input', (e) => {
+                    currentData.rows = parseInt(e.target.value) || 1;
+                    updateDocument();
+                });
+
+                document.getElementById('fps').addEventListener('input', (e) => {
+                    currentData.fps = parseInt(e.target.value) || 1;
+                    updateDocument();
+                });
+
+                // Animation list event listeners
+                document.getElementById('add-animation-btn').addEventListener('click', () => {
                     const name = prompt('Animation name:');
                     if (!name || name.trim() === '') return;
                     if (currentData.animations[name]) {
                         alert('Animation with this name already exists');
                         return;
                     }
-                    const framesStr = prompt('Frame indices (comma-separated):', '0, 1, 2, 3');
-                    if (framesStr === null) return;
-
-                    const frames = framesStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                    currentData.animations[name] = frames;
+                    currentData.animations[name] = [];
                     updateDocument();
-                }
+                });
 
-                function editAnimation(name) {
-                    const currentFrames = currentData.animations[name].join(', ');
-                    const framesStr = prompt('Frame indices (comma-separated):', currentFrames);
-                    if (framesStr === null) return;
-
-                    const frames = framesStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                    currentData.animations[name] = frames;
-                    updateDocument();
-                }
-
-                function deleteAnimation(name) {
-                    if (confirm(\`Delete animation "\${name}"?\`)) {
-                        delete currentData.animations[name];
+                document.getElementById('remove-animation-btn').addEventListener('click', () => {
+                    if (!selectedAnimation) {
+                        alert('No animation selected');
+                        return;
+                    }
+                    if (confirm(\`Delete animation "\${selectedAnimation}"?\`)) {
+                        delete currentData.animations[selectedAnimation];
+                        selectedAnimation = null;
                         updateDocument();
                     }
-                }
+                });
+
+                // Animation item selection
+                document.getElementById('animation-list').addEventListener('click', (e) => {
+                    const item = e.target.closest('.animation-item');
+                    if (item) {
+                        document.querySelectorAll('.animation-item').forEach(el => el.classList.remove('selected'));
+                        item.classList.add('selected');
+                        selectedAnimation = item.dataset.name;
+                    }
+                });
+
+                // Handle messages from extension
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    if (message.type === 'imageSelected') {
+                        document.getElementById('image-path').value = message.path;
+                        currentData.image = message.path;
+                        updateDocument();
+                    }
+                });
 
                 function updateDocument() {
                     vscode.postMessage({
@@ -354,9 +595,91 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         data: currentData
                     });
                 }
+
+                // Resizing functionality
+                function setupResize(handleId, targetId, isHorizontal, getSize, setSize) {
+                    const handle = document.getElementById(handleId);
+                    const target = document.getElementById(targetId);
+                    let isResizing = false;
+                    let startPos = 0;
+                    let startSize = 0;
+
+                    handle.addEventListener('mousedown', (e) => {
+                        isResizing = true;
+                        startPos = isHorizontal ? e.clientY : e.clientX;
+                        startSize = getSize(target);
+                        handle.classList.add('resizing');
+                        e.preventDefault();
+                    });
+
+                    document.addEventListener('mousemove', (e) => {
+                        if (!isResizing) return;
+                        const delta = (isHorizontal ? e.clientY : e.clientX) - startPos;
+                        const newSize = startSize + delta;
+                        setSize(target, Math.max(100, newSize));
+                    });
+
+                    document.addEventListener('mouseup', () => {
+                        if (isResizing) {
+                            isResizing = false;
+                            handle.classList.remove('resizing');
+                        }
+                    });
+                }
+
+                // Setup resize handles
+                setupResize(
+                    'resize-handle-left',
+                    'animation-list-panel',
+                    false,
+                    (el) => el.offsetWidth,
+                    (el, size) => el.style.width = size + 'px'
+                );
+
+                // Bottom panel resize - invert delta since we're resizing from top
+                const handleBottom = document.getElementById('resize-handle-bottom');
+                const bottomPanel = document.getElementById('bottom-panels');
+                let isResizingBottom = false;
+                let startYBottom = 0;
+                let startHeightBottom = 0;
+
+                handleBottom.addEventListener('mousedown', (e) => {
+                    isResizingBottom = true;
+                    startYBottom = e.clientY;
+                    startHeightBottom = bottomPanel.offsetHeight;
+                    handleBottom.classList.add('resizing');
+                    e.preventDefault();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizingBottom) return;
+                    const delta = startYBottom - e.clientY; // Inverted!
+                    const newHeight = startHeightBottom + delta;
+                    bottomPanel.style.height = Math.max(100, newHeight) + 'px';
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isResizingBottom) {
+                        isResizingBottom = false;
+                        handleBottom.classList.remove('resizing');
+                    }
+                });
+
+                setupResize(
+                    'resize-handle-preview',
+                    'preview-panel',
+                    false,
+                    (el) => el.offsetWidth,
+                    (el, size) => el.style.width = size + 'px'
+                );
             </script>
         </body>
         </html>`;
+    }
+
+    private getAnimationColor(index: number, total: number): string {
+        const hue = (index * 360) / Math.max(total, 1);
+        return `hsl(${hue}, 70%, 60%)`;
     }
 
     private escapeHtml(text: string): string {
