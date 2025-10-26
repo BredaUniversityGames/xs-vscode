@@ -515,6 +515,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     padding: 0 8px;
                     height: 22px;
                     display: flex;
+                    justify-content: space-between;
                     align-items: center;
                     font-size: 11px;
                     font-weight: 600;
@@ -522,12 +523,19 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     color: var(--vscode-foreground);
                 }
 
+                .timeline-buttons {
+                    display: flex;
+                    gap: 4px;
+                }
+
                 .timeline-content {
                     flex: 1;
                     padding: 8px;
                     overflow-x: auto;
+                    overflow-y: hidden;
                     display: flex;
                     gap: 4px;
+                    align-items: flex-start;
                 }
 
                 .timeline-placeholder {
@@ -537,6 +545,37 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     height: 100%;
                     color: var(--vscode-descriptionForeground);
                     font-size: 13px;
+                }
+
+                .timeline-frame {
+                    position: relative;
+                    flex-shrink: 0;
+                    cursor: pointer;
+                    border: 2px solid transparent;
+                    background: var(--vscode-editor-background);
+                }
+
+                .timeline-frame:hover {
+                    border-color: var(--vscode-list-hoverBackground);
+                }
+
+                .timeline-frame.selected {
+                    border-color: var(--vscode-focusBorder);
+                }
+
+                .timeline-frame canvas {
+                    display: block;
+                }
+
+                .timeline-frame-index {
+                    position: absolute;
+                    bottom: 2px;
+                    right: 2px;
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    font-size: 10px;
+                    padding: 2px 4px;
+                    border-radius: 2px;
                 }
 
                 /* Preview Panel */
@@ -657,7 +696,20 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
             <div class="bottom-panels" id="bottom-panels">
                 <!-- Timeline -->
                 <div class="timeline-panel" id="timeline-panel">
-                    <div class="timeline-header">Timeline</div>
+                    <div class="timeline-header">
+                        <span>Timeline</span>
+                        <div class="timeline-buttons">
+                            <vscode-button appearance="icon" aria-label="Insert Before" id="insert-before-btn" disabled>
+                                <span class="codicon codicon-arrow-left"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" aria-label="Insert After" id="insert-after-btn" disabled>
+                                <span class="codicon codicon-arrow-right"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" aria-label="Remove Frame" id="remove-frame-btn" disabled>
+                                <span class="codicon codicon-trash"></span>
+                            </vscode-button>
+                        </div>
+                    </div>
                     <div class="timeline-content" id="timeline">
                         <div class="timeline-placeholder">No animation selected</div>
                     </div>
@@ -681,6 +733,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 let selectedAnimation = ${animationEntries.length > 0 ? `"${this.escapeHtml(animationEntries[0][0])}"` : 'null'};
                 let selectedFrames = new Set(); // Currently selected frames in grid
                 let spriteImage = null; // Loaded sprite sheet image
+                let selectedTimelineIndex = -1; // Selected frame index in timeline
 
                 // Top bar event listeners
                 document.getElementById('browse-btn').addEventListener('click', () => {
@@ -789,9 +842,11 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         document.querySelectorAll('.animation-item').forEach(el => el.classList.remove('selected'));
                         item.classList.add('selected');
                         selectedAnimation = item.dataset.name;
+                        selectedTimelineIndex = -1; // Reset timeline selection
                         animationList.focus();
                         updateRemoveButtonState();
                         updateAddFramesButtonState();
+                        renderTimeline();
                     }
                 });
 
@@ -820,13 +875,17 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         case 'animationNameEntered':
                             currentData.animations[message.name] = [];
                             selectedAnimation = message.name;
+                            selectedTimelineIndex = -1;
                             rebuildAnimationList();
+                            renderTimeline();
                             updateDocument();
                             break;
                         case 'deleteConfirmed':
                             delete currentData.animations[message.name];
                             selectedAnimation = null;
+                            selectedTimelineIndex = -1;
                             rebuildAnimationList();
+                            renderTimeline();
                             updateDocument();
                             break;
                         case 'renameConfirmed':
@@ -836,6 +895,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                                 selectedAnimation = message.newName;
                             }
                             rebuildAnimationList();
+                            renderTimeline();
                             updateDocument();
                             break;
                         case 'imageUri':
@@ -844,6 +904,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                             spriteImage = new Image();
                             spriteImage.onload = () => {
                                 drawGridView();
+                                renderTimeline();
                             };
                             spriteImage.onerror = () => {
                                 gridView.innerHTML = '<div class="grid-placeholder">Failed to load image</div>';
@@ -1144,12 +1205,191 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     // Clear selection
                     selectedFrames.clear();
                     redrawOverlay();
+                    renderTimeline();
                     updateAddFramesButtonState();
+                    updateDocument();
+                });
+
+                // Timeline Functions
+                function renderTimeline() {
+                    const timelineEl = document.getElementById('timeline');
+
+                    if (!selectedAnimation || !currentData.animations[selectedAnimation]) {
+                        timelineEl.innerHTML = '<div class="timeline-placeholder">No animation selected</div>';
+                        selectedTimelineIndex = -1;
+                        updateTimelineButtonState();
+                        return;
+                    }
+
+                    const frames = currentData.animations[selectedAnimation];
+
+                    if (frames.length === 0) {
+                        timelineEl.innerHTML = '<div class="timeline-placeholder">No frames in animation</div>';
+                        selectedTimelineIndex = -1;
+                        updateTimelineButtonState();
+                        return;
+                    }
+
+                    if (!spriteImage || !spriteImage.complete) {
+                        timelineEl.innerHTML = '<div class="timeline-placeholder">Loading...</div>';
+                        return;
+                    }
+
+                    // Render frame thumbnails
+                    timelineEl.innerHTML = '';
+
+                    const cols = currentData.columns;
+                    const rows = currentData.rows;
+                    const cellWidth = spriteImage.width / cols;
+                    const cellHeight = spriteImage.height / rows;
+                    const thumbHeight = 80; // Max thumbnail height
+                    const scale = Math.min(1, thumbHeight / cellHeight);
+                    const thumbWidth = cellWidth * scale;
+                    const scaledThumbHeight = cellHeight * scale;
+
+                    frames.forEach((frameIndex, timelineIndex) => {
+                        const frameDiv = document.createElement('div');
+                        frameDiv.className = 'timeline-frame';
+                        if (timelineIndex === selectedTimelineIndex) {
+                            frameDiv.classList.add('selected');
+                        }
+                        frameDiv.dataset.timelineIndex = timelineIndex;
+
+                        // Create canvas for thumbnail
+                        const canvas = document.createElement('canvas');
+                        canvas.width = thumbWidth;
+                        canvas.height = scaledThumbHeight;
+
+                        const ctx = canvas.getContext('2d');
+
+                        // Draw checkerboard background
+                        const checkSize = 8;
+                        const color1 = '#cccccc';
+                        const color2 = '#999999';
+                        for (let y = 0; y < scaledThumbHeight; y += checkSize) {
+                            for (let x = 0; x < thumbWidth; x += checkSize) {
+                                const isEven = (Math.floor(x / checkSize) + Math.floor(y / checkSize)) % 2 === 0;
+                                ctx.fillStyle = isEven ? color1 : color2;
+                                ctx.fillRect(x, y, checkSize, checkSize);
+                            }
+                        }
+
+                        // Calculate source position
+                        const row = Math.floor(frameIndex / cols);
+                        const col = frameIndex % cols;
+                        const sx = col * cellWidth;
+                        const sy = row * cellHeight;
+
+                        // Draw frame
+                        ctx.drawImage(
+                            spriteImage,
+                            sx, sy, cellWidth, cellHeight,
+                            0, 0, thumbWidth, scaledThumbHeight
+                        );
+
+                        // Add frame index label
+                        const label = document.createElement('div');
+                        label.className = 'timeline-frame-index';
+                        label.textContent = frameIndex;
+
+                        frameDiv.appendChild(canvas);
+                        frameDiv.appendChild(label);
+                        timelineEl.appendChild(frameDiv);
+                    });
+
+                    updateTimelineButtonState();
+                }
+
+                function updateTimelineButtonState() {
+                    const insertBeforeBtn = document.getElementById('insert-before-btn');
+                    const insertAfterBtn = document.getElementById('insert-after-btn');
+                    const removeFrameBtn = document.getElementById('remove-frame-btn');
+
+                    const hasSelection = selectedTimelineIndex >= 0 &&
+                                        selectedAnimation &&
+                                        currentData.animations[selectedAnimation] &&
+                                        selectedTimelineIndex < currentData.animations[selectedAnimation].length;
+
+                    const hasFramesSelected = selectedFrames.size > 0 && selectedAnimation;
+
+                    if (hasSelection && hasFramesSelected) {
+                        insertBeforeBtn.removeAttribute('disabled');
+                        insertAfterBtn.removeAttribute('disabled');
+                    } else {
+                        insertBeforeBtn.setAttribute('disabled', 'true');
+                        insertAfterBtn.setAttribute('disabled', 'true');
+                    }
+
+                    if (hasSelection) {
+                        removeFrameBtn.removeAttribute('disabled');
+                    } else {
+                        removeFrameBtn.setAttribute('disabled', 'true');
+                    }
+                }
+
+                // Timeline event listeners
+                document.getElementById('timeline').addEventListener('click', (e) => {
+                    const frameDiv = e.target.closest('.timeline-frame');
+                    if (frameDiv) {
+                        const timelineIndex = parseInt(frameDiv.dataset.timelineIndex);
+
+                        // Toggle selection
+                        if (selectedTimelineIndex === timelineIndex) {
+                            selectedTimelineIndex = -1;
+                        } else {
+                            selectedTimelineIndex = timelineIndex;
+                        }
+
+                        renderTimeline();
+                    }
+                });
+
+                document.getElementById('insert-before-btn').addEventListener('click', () => {
+                    if (selectedTimelineIndex < 0 || !selectedAnimation || selectedFrames.size === 0) {
+                        return;
+                    }
+
+                    const framesToInsert = Array.from(selectedFrames).sort((a, b) => a - b);
+                    currentData.animations[selectedAnimation].splice(selectedTimelineIndex, 0, ...framesToInsert);
+
+                    selectedFrames.clear();
+                    redrawOverlay();
+                    renderTimeline();
+                    updateAddFramesButtonState();
+                    updateDocument();
+                });
+
+                document.getElementById('insert-after-btn').addEventListener('click', () => {
+                    if (selectedTimelineIndex < 0 || !selectedAnimation || selectedFrames.size === 0) {
+                        return;
+                    }
+
+                    const framesToInsert = Array.from(selectedFrames).sort((a, b) => a - b);
+                    currentData.animations[selectedAnimation].splice(selectedTimelineIndex + 1, 0, ...framesToInsert);
+
+                    selectedFrames.clear();
+                    redrawOverlay();
+                    renderTimeline();
+                    updateAddFramesButtonState();
+                    updateDocument();
+                });
+
+                document.getElementById('remove-frame-btn').addEventListener('click', () => {
+                    if (selectedTimelineIndex < 0 || !selectedAnimation) {
+                        return;
+                    }
+
+                    currentData.animations[selectedAnimation].splice(selectedTimelineIndex, 1);
+                    selectedTimelineIndex = -1;
+
+                    renderTimeline();
+                    redrawOverlay();
                     updateDocument();
                 });
 
                 // Load sprite sheet on init
                 loadSpriteSheet();
+                renderTimeline();
 
                 // Resizing functionality
                 function setupResize(handleId, targetId, isHorizontal, getSize, setSize) {
