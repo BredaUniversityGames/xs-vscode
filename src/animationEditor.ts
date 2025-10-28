@@ -268,7 +268,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     gap: 12px;
                     padding: 0 12px;
                     height: 35px;
-                    background: var(--vscode-editorGroupHeader-tabsBackground);
+                    background: var(--vscode-tab-inactiveBackground);
                     align-items: center;
                     border-bottom: 1px solid var(--vscode-panel-border);
                 }
@@ -319,7 +319,8 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 /* Animation List Panel */
                 .animation-list-panel {
                     width: 250px;
-                    background: var(--vscode-editor-background);
+                    flex-shrink: 0;
+                    background: var(--vscode-tab-inactiveBackground);
                     display: flex;
                     flex-direction: column;
                 }
@@ -328,12 +329,13 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     padding: 0 8px;
                     height: 22px;
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
+                    justify-content: space-between;
                     font-size: 11px;
                     font-weight: 600;
                     text-transform: uppercase;
                     color: var(--vscode-foreground);
+                    background: var(--vscode-tab-inactiveBackground);
                 }
 
                 .animation-list-buttons {
@@ -394,34 +396,18 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     width: 100%;
                 }
 
-                /* Resize Handle */
-                .resize-handle {
+                /* Panel Separators */
+                .panel-separator {
                     width: 1px;
-                    cursor: col-resize;
                     background: var(--vscode-panel-border);
-                    position: relative;
                     flex-shrink: 0;
-                    padding: 0 2px;
-                    margin: 0 -2px;
                 }
 
-                .resize-handle:hover,
-                .resize-handle.resizing {
-                    background: var(--vscode-sash-hoverBorder);
-                }
-
-                .resize-handle-horizontal {
+                .panel-separator-horizontal {
                     height: 1px;
                     width: 100%;
-                    cursor: row-resize;
                     background: var(--vscode-panel-border);
-                    padding: 2px 0;
-                    margin: -2px 0;
-                }
-
-                .resize-handle-horizontal:hover,
-                .resize-handle-horizontal.resizing {
-                    background: var(--vscode-sash-hoverBorder);
+                    flex-shrink: 0;
                 }
 
                 /* Grid View Panel */
@@ -437,7 +423,6 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     padding: 0 8px;
                     height: 22px;
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
                     font-size: 11px;
                     font-weight: 600;
@@ -445,9 +430,14 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     color: var(--vscode-foreground);
                 }
 
+                .grid-view-header span {
+                    flex: 1;
+                }
+
                 .grid-view-buttons {
                     display: flex;
                     gap: 4px;
+                    margin-left: 8px;
                 }
 
                 .grid-view-content {
@@ -500,6 +490,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 /* Bottom Panels */
                 .bottom-panels {
                     height: 200px;
+                    flex-shrink: 0;
                     display: flex;
                 }
 
@@ -515,7 +506,6 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     padding: 0 8px;
                     height: 22px;
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
                     font-size: 11px;
                     font-weight: 600;
@@ -523,9 +513,14 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     color: var(--vscode-foreground);
                 }
 
+                .timeline-header span {
+                    flex: 1;
+                }
+
                 .timeline-buttons {
                     display: flex;
                     gap: 4px;
+                    margin-left: 8px;
                 }
 
                 .timeline-content {
@@ -581,6 +576,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 /* Preview Panel */
                 .preview-panel {
                     width: 300px;
+                    flex-shrink: 0;
                     display: flex;
                     flex-direction: column;
                     background: var(--vscode-editor-background);
@@ -597,16 +593,47 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     color: var(--vscode-foreground);
                 }
 
+                .preview-header span {
+                    flex: 1;
+                }
+
                 .preview-content {
                     flex: 1;
                     display: flex;
+                    flex-direction: column;
                     align-items: center;
                     justify-content: center;
+                    padding: 16px;
+                    overflow: auto;
                 }
 
                 .preview-placeholder {
                     color: var(--vscode-descriptionForeground);
                     font-size: 13px;
+                }
+
+                .preview-canvas-container {
+                    position: relative;
+                    display: inline-block;
+                }
+
+                .preview-canvas-container canvas {
+                    display: block;
+                    image-rendering: pixelated;
+                    image-rendering: crisp-edges;
+                }
+
+                .preview-controls {
+                    margin-top: 12px;
+                    display: flex;
+                    gap: 4px;
+                    align-items: center;
+                }
+
+                .preview-frame-info {
+                    margin-top: 8px;
+                    font-size: 11px;
+                    color: var(--vscode-descriptionForeground);
                 }
             </style>
         </head>
@@ -644,11 +671,11 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     <div class="animation-list-header">
                         <span>Animations</span>
                         <div class="animation-list-buttons">
-                            <vscode-button appearance="icon" aria-label="Add Animation" id="add-animation-btn">
-                                <span class="codicon codicon-add"></span>
+                            <vscode-button appearance="icon" aria-label="New Animation" title="New Animation" id="add-animation-btn">
+                                <span class="codicon codicon-new-file"></span>
                             </vscode-button>
-                            <vscode-button appearance="icon" aria-label="Remove Animation" id="remove-animation-btn">
-                                <span class="codicon codicon-remove"></span>
+                            <vscode-button appearance="icon" aria-label="Delete Animation" title="Delete Animation" id="remove-animation-btn" disabled>
+                                <span class="codicon codicon-trash"></span>
                             </vscode-button>
                         </div>
                     </div>
@@ -668,16 +695,23 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     </div>
                 </div>
 
-                <!-- Resize Handle -->
-                <div class="resize-handle" id="resize-handle-left"></div>
+                <!-- Separator -->
+                <div class="panel-separator"></div>
 
                 <!-- Grid View -->
                 <div class="grid-view-panel">
                     <div class="grid-view-header">
                         <span>Sprite Sheet</span>
-                        <div class="grid-view-buttons">
-                            <vscode-button appearance="icon" aria-label="Add Frames" id="add-frames-btn" disabled>
-                                <span class="codicon codicon-add"></span>
+                        <div class="grid-view-controls">
+                            <select id="grid-zoom-select">
+                                <option value="0.25">25%</option>
+                                <option value="0.5">50%</option>
+                                <option value="1" selected>100%</option>
+                                <option value="2">200%</option>
+                                <option value="4">400%</option>
+                            </select>
+                            <vscode-button appearance="icon" aria-label="Add Selected Frames to Animation" title="Add Selected Frames to Animation" id="add-frames-btn" disabled>
+                                <span class="codicon codicon-new-file"></span>
                             </vscode-button>
                         </div>
                     </div>
@@ -689,11 +723,11 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 </div>
             </div>
 
-            <!-- Horizontal Resize Handle -->
-            <div class="resize-handle resize-handle-horizontal" id="resize-handle-bottom"></div>
+            <!-- Separator -->
+            <div class="panel-separator-horizontal"></div>
 
             <!-- Bottom Panels -->
-            <div class="bottom-panels" id="bottom-panels">
+            <div class="bottom-panels" style="height: 200px;">
                 <!-- Timeline -->
                 <div class="timeline-panel" id="timeline-panel">
                     <div class="timeline-header">
@@ -715,14 +749,14 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     </div>
                 </div>
 
-                <!-- Resize Handle -->
-                <div class="resize-handle" id="resize-handle-preview"></div>
+                <!-- Separator -->
+                <div class="panel-separator"></div>
 
                 <!-- Preview -->
                 <div class="preview-panel" id="preview-panel">
-                    <div class="preview-header">Preview</div>
+                    <div class="preview-header"><span>Preview</span></div>
                     <div class="preview-content" id="preview">
-                        <div class="preview-placeholder">No preview available</div>
+                        <div class="preview-placeholder">No animation selected</div>
                     </div>
                 </div>
             </div>
@@ -734,6 +768,12 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 let selectedFrames = new Set(); // Currently selected frames in grid
                 let spriteImage = null; // Loaded sprite sheet image
                 let selectedTimelineIndex = -1; // Selected frame index in timeline
+                let isPlaying = false; // Preview playback state
+                let currentPreviewFrame = 0; // Current frame in preview
+                let loopEnabled = true; // Loop animation
+                let lastFrameTime = 0; // For FPS timing
+                let animationFrameId = null; // RequestAnimationFrame ID
+                let gridZoom = 1; // Grid view zoom level
 
                 // Top bar event listeners
                 document.getElementById('browse-btn').addEventListener('click', () => {
@@ -767,6 +807,14 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 document.getElementById('fps').addEventListener('input', (e) => {
                     currentData.fps = parseInt(e.target.value) || 1;
                     updateDocument();
+                });
+
+                // Grid zoom event listener
+                document.getElementById('grid-zoom-select').addEventListener('change', (e) => {
+                    gridZoom = parseFloat(e.target.value) || 1;
+                    if (spriteImage && spriteImage.complete) {
+                        drawGridView();
+                    }
                 });
 
                 // Update remove button state
@@ -843,10 +891,13 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         item.classList.add('selected');
                         selectedAnimation = item.dataset.name;
                         selectedTimelineIndex = -1; // Reset timeline selection
+                        currentPreviewFrame = 0; // Reset preview
+                        stopAnimation();
                         animationList.focus();
                         updateRemoveButtonState();
                         updateAddFramesButtonState();
                         renderTimeline();
+                        renderPreview();
                     }
                 });
 
@@ -876,16 +927,22 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                             currentData.animations[message.name] = [];
                             selectedAnimation = message.name;
                             selectedTimelineIndex = -1;
+                            currentPreviewFrame = 0;
+                            stopAnimation();
                             rebuildAnimationList();
                             renderTimeline();
+                            renderPreview();
                             updateDocument();
                             break;
                         case 'deleteConfirmed':
                             delete currentData.animations[message.name];
                             selectedAnimation = null;
                             selectedTimelineIndex = -1;
+                            currentPreviewFrame = 0;
+                            stopAnimation();
                             rebuildAnimationList();
                             renderTimeline();
+                            renderPreview();
                             updateDocument();
                             break;
                         case 'renameConfirmed':
@@ -896,6 +953,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                             }
                             rebuildAnimationList();
                             renderTimeline();
+                            renderPreview();
                             updateDocument();
                             break;
                         case 'imageUri':
@@ -952,25 +1010,29 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     const imgWidth = spriteImage.width;
                     const imgHeight = spriteImage.height;
 
-                    console.log('Drawing grid view:', { cols, rows, imgWidth, imgHeight });
+                    // Apply zoom to dimensions
+                    const zoomedWidth = Math.floor(imgWidth * gridZoom);
+                    const zoomedHeight = Math.floor(imgHeight * gridZoom);
+
+                    console.log('Drawing grid view:', { cols, rows, imgWidth, imgHeight, gridZoom, zoomedWidth, zoomedHeight });
 
                     // Create container
                     gridView.innerHTML = '';
                     const container = document.createElement('div');
                     container.className = 'grid-canvas-container';
-                    container.style.width = imgWidth + 'px';
-                    container.style.height = imgHeight + 'px';
+                    container.style.width = zoomedWidth + 'px';
+                    container.style.height = zoomedHeight + 'px';
 
                     const baseCanvas = document.createElement('canvas');
                     baseCanvas.id = 'grid-base-canvas';
-                    baseCanvas.width = imgWidth;
-                    baseCanvas.height = imgHeight;
+                    baseCanvas.width = zoomedWidth;
+                    baseCanvas.height = zoomedHeight;
 
                     const overlayCanvas = document.createElement('canvas');
                     overlayCanvas.id = 'grid-overlay-canvas';
                     overlayCanvas.className = 'overlay-canvas';
-                    overlayCanvas.width = imgWidth;
-                    overlayCanvas.height = imgHeight;
+                    overlayCanvas.width = zoomedWidth;
+                    overlayCanvas.height = zoomedHeight;
 
                     container.appendChild(baseCanvas);
                     container.appendChild(overlayCanvas);
@@ -1206,6 +1268,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     selectedFrames.clear();
                     redrawOverlay();
                     renderTimeline();
+                    renderPreview();
                     updateAddFramesButtonState();
                     updateDocument();
                 });
@@ -1355,6 +1418,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     selectedFrames.clear();
                     redrawOverlay();
                     renderTimeline();
+                    renderPreview();
                     updateAddFramesButtonState();
                     updateDocument();
                 });
@@ -1370,6 +1434,7 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     selectedFrames.clear();
                     redrawOverlay();
                     renderTimeline();
+                    renderPreview();
                     updateAddFramesButtonState();
                     updateDocument();
                 });
@@ -1382,91 +1447,232 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     currentData.animations[selectedAnimation].splice(selectedTimelineIndex, 1);
                     selectedTimelineIndex = -1;
 
+                    // Clamp preview frame
+                    if (currentPreviewFrame >= currentData.animations[selectedAnimation].length) {
+                        currentPreviewFrame = Math.max(0, currentData.animations[selectedAnimation].length - 1);
+                    }
+
                     renderTimeline();
                     redrawOverlay();
+                    renderPreview();
                     updateDocument();
                 });
+
+                // Preview Functions
+                function renderPreview() {
+                    const previewEl = document.getElementById('preview');
+
+                    if (!selectedAnimation || !currentData.animations[selectedAnimation]) {
+                        previewEl.innerHTML = '<div class="preview-placeholder">No animation selected</div>';
+                        stopAnimation();
+                        return;
+                    }
+
+                    const frames = currentData.animations[selectedAnimation];
+
+                    if (frames.length === 0) {
+                        previewEl.innerHTML = '<div class="preview-placeholder">No frames in animation</div>';
+                        stopAnimation();
+                        return;
+                    }
+
+                    if (!spriteImage || !spriteImage.complete) {
+                        previewEl.innerHTML = '<div class="preview-placeholder">Loading...</div>';
+                        return;
+                    }
+
+                    // Calculate frame dimensions
+                    const cols = currentData.columns;
+                    const rows = currentData.rows;
+                    const cellWidth = spriteImage.width / cols;
+                    const cellHeight = spriteImage.height / rows;
+
+                    // Integer scaling for crisp pixels
+                    const maxPreviewSize = 200;
+                    const scale = Math.max(1, Math.floor(maxPreviewSize / Math.max(cellWidth, cellHeight)));
+                    const previewWidth = cellWidth * scale;
+                    const previewHeight = cellHeight * scale;
+
+                    // Build preview HTML
+                    previewEl.innerHTML = \`
+                        <div class="preview-canvas-container">
+                            <canvas id="preview-canvas"></canvas>
+                        </div>
+                        <div class="preview-controls">
+                            <vscode-button appearance="icon" id="preview-step-back" aria-label="Step Back">
+                                <span class="codicon codicon-debug-step-back"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" id="preview-play-pause" aria-label="Play/Pause">
+                                <span class="codicon codicon-\${isPlaying ? 'debug-pause' : 'play'}"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" id="preview-step-forward" aria-label="Step Forward">
+                                <span class="codicon codicon-debug-step-over"></span>
+                            </vscode-button>
+                            <vscode-button appearance="icon" id="preview-loop" aria-label="Toggle Loop" \${loopEnabled ? '' : 'appearance="secondary"'}>
+                                <span class="codicon codicon-sync"></span>
+                            </vscode-button>
+                        </div>
+                        <div class="preview-frame-info">
+                            Frame: <span id="preview-frame-number">\${currentPreviewFrame + 1}</span> / \${frames.length}
+                        </div>
+                    \`;
+
+                    const canvas = document.getElementById('preview-canvas');
+                    canvas.width = previewWidth;
+                    canvas.height = previewHeight;
+
+                    // Setup control event listeners
+                    setupPreviewControls();
+
+                    // Draw current frame
+                    drawPreviewFrame();
+                }
+
+                function drawPreviewFrame() {
+                    const canvas = document.getElementById('preview-canvas');
+                    if (!canvas || !selectedAnimation) return;
+
+                    const frames = currentData.animations[selectedAnimation];
+                    if (frames.length === 0) return;
+
+                    // Clamp current frame
+                    currentPreviewFrame = Math.max(0, Math.min(currentPreviewFrame, frames.length - 1));
+
+                    const ctx = canvas.getContext('2d');
+                    const cols = currentData.columns;
+                    const rows = currentData.rows;
+                    const cellWidth = spriteImage.width / cols;
+                    const cellHeight = spriteImage.height / rows;
+
+                    // Draw checkerboard
+                    const checkSize = 16;
+                    const color1 = '#cccccc';
+                    const color2 = '#999999';
+                    for (let y = 0; y < canvas.height; y += checkSize) {
+                        for (let x = 0; x < canvas.width; x += checkSize) {
+                            const isEven = (Math.floor(x / checkSize) + Math.floor(y / checkSize)) % 2 === 0;
+                            ctx.fillStyle = isEven ? color1 : color2;
+                            ctx.fillRect(x, y, checkSize, checkSize);
+                        }
+                    }
+
+                    // Get current frame from animation
+                    const frameIndex = frames[currentPreviewFrame];
+                    const row = Math.floor(frameIndex / cols);
+                    const col = frameIndex % cols;
+                    const sx = col * cellWidth;
+                    const sy = row * cellHeight;
+
+                    // Draw frame scaled to canvas size (integer scaling for crisp pixels)
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(
+                        spriteImage,
+                        sx, sy, cellWidth, cellHeight,
+                        0, 0, canvas.width, canvas.height
+                    );
+
+                    // Update frame counter
+                    const frameInfo = document.getElementById('preview-frame-number');
+                    if (frameInfo) {
+                        frameInfo.textContent = currentPreviewFrame + 1;
+                    }
+                }
+
+                function setupPreviewControls() {
+                    document.getElementById('preview-play-pause')?.addEventListener('click', () => {
+                        if (isPlaying) {
+                            stopAnimation();
+                        } else {
+                            startAnimation();
+                        }
+                    });
+
+                    document.getElementById('preview-step-back')?.addEventListener('click', () => {
+                        stopAnimation();
+                        stepFrame(-1);
+                    });
+
+                    document.getElementById('preview-step-forward')?.addEventListener('click', () => {
+                        stopAnimation();
+                        stepFrame(1);
+                    });
+
+                    document.getElementById('preview-loop')?.addEventListener('click', () => {
+                        loopEnabled = !loopEnabled;
+                        renderPreview();
+                    });
+                }
+
+                function startAnimation() {
+                    if (!selectedAnimation || !currentData.animations[selectedAnimation]) return;
+
+                    const frames = currentData.animations[selectedAnimation];
+                    if (frames.length === 0) return;
+
+                    isPlaying = true;
+                    lastFrameTime = performance.now();
+                    renderPreview();
+                    animationLoop();
+                }
+
+                function stopAnimation() {
+                    isPlaying = false;
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                        animationFrameId = null;
+                    }
+                    renderPreview();
+                }
+
+                function stepFrame(direction) {
+                    if (!selectedAnimation) return;
+
+                    const frames = currentData.animations[selectedAnimation];
+                    if (frames.length === 0) return;
+
+                    currentPreviewFrame += direction;
+
+                    if (currentPreviewFrame < 0) {
+                        currentPreviewFrame = loopEnabled ? frames.length - 1 : 0;
+                    } else if (currentPreviewFrame >= frames.length) {
+                        currentPreviewFrame = loopEnabled ? 0 : frames.length - 1;
+                    }
+
+                    drawPreviewFrame();
+                }
+
+                function animationLoop() {
+                    if (!isPlaying) return;
+
+                    const now = performance.now();
+                    const frameDuration = 1000 / currentData.fps;
+
+                    if (now - lastFrameTime >= frameDuration) {
+                        lastFrameTime = now;
+
+                        const frames = currentData.animations[selectedAnimation];
+                        currentPreviewFrame++;
+
+                        if (currentPreviewFrame >= frames.length) {
+                            if (loopEnabled) {
+                                currentPreviewFrame = 0;
+                            } else {
+                                currentPreviewFrame = frames.length - 1;
+                                stopAnimation();
+                                return;
+                            }
+                        }
+
+                        drawPreviewFrame();
+                    }
+
+                    animationFrameId = requestAnimationFrame(animationLoop);
+                }
 
                 // Load sprite sheet on init
                 loadSpriteSheet();
                 renderTimeline();
-
-                // Resizing functionality
-                function setupResize(handleId, targetId, isHorizontal, getSize, setSize) {
-                    const handle = document.getElementById(handleId);
-                    const target = document.getElementById(targetId);
-                    let isResizing = false;
-                    let startPos = 0;
-                    let startSize = 0;
-
-                    handle.addEventListener('mousedown', (e) => {
-                        isResizing = true;
-                        startPos = isHorizontal ? e.clientY : e.clientX;
-                        startSize = getSize(target);
-                        handle.classList.add('resizing');
-                        e.preventDefault();
-                    });
-
-                    document.addEventListener('mousemove', (e) => {
-                        if (!isResizing) return;
-                        const delta = (isHorizontal ? e.clientY : e.clientX) - startPos;
-                        const newSize = startSize + delta;
-                        setSize(target, Math.max(100, newSize));
-                    });
-
-                    document.addEventListener('mouseup', () => {
-                        if (isResizing) {
-                            isResizing = false;
-                            handle.classList.remove('resizing');
-                        }
-                    });
-                }
-
-                // Setup resize handles
-                setupResize(
-                    'resize-handle-left',
-                    'animation-list-panel',
-                    false,
-                    (el) => el.offsetWidth,
-                    (el, size) => el.style.width = size + 'px'
-                );
-
-                // Bottom panel resize - invert delta since we're resizing from top
-                const handleBottom = document.getElementById('resize-handle-bottom');
-                const bottomPanel = document.getElementById('bottom-panels');
-                let isResizingBottom = false;
-                let startYBottom = 0;
-                let startHeightBottom = 0;
-
-                handleBottom.addEventListener('mousedown', (e) => {
-                    isResizingBottom = true;
-                    startYBottom = e.clientY;
-                    startHeightBottom = bottomPanel.offsetHeight;
-                    handleBottom.classList.add('resizing');
-                    e.preventDefault();
-                });
-
-                document.addEventListener('mousemove', (e) => {
-                    if (!isResizingBottom) return;
-                    const delta = startYBottom - e.clientY; // Inverted!
-                    const newHeight = startHeightBottom + delta;
-                    bottomPanel.style.height = Math.max(100, newHeight) + 'px';
-                });
-
-                document.addEventListener('mouseup', () => {
-                    if (isResizingBottom) {
-                        isResizingBottom = false;
-                        handleBottom.classList.remove('resizing');
-                    }
-                });
-
-                setupResize(
-                    'resize-handle-preview',
-                    'preview-panel',
-                    false,
-                    (el) => el.offsetWidth,
-                    (el, size) => el.style.width = size + 'px'
-                );
+                renderPreview();
             </script>
         </body>
         </html>`;
