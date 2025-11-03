@@ -76,24 +76,12 @@ function createStatusBarItems(context: vscode.ExtensionContext) {
     runStatusBarItem.show();
 
     context.subscriptions.push(runStatusBarItem);
-
-    const packageAndRunStatusBarItem = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
-        0 // Lowest priority (appears rightmost on left side)
-    );
-
-    packageAndRunStatusBarItem.command = 'xs-vscode.packageAndRun';
-    packageAndRunStatusBarItem.text = '$(package) Package & Run';
-    packageAndRunStatusBarItem.tooltip = 'Package and run the game from .xs package';
-    packageAndRunStatusBarItem.show();
-
-    context.subscriptions.push(packageAndRunStatusBarItem);
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
 
     // Run Engine command
-   let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', () => {
+   let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', async () => {
     const config = vscode.workspace.getConfiguration('xs');
     let enginePath = config.get<string>('enginePath', '');
     let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
@@ -103,8 +91,33 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Validate engine path
     if (!enginePath) {
-        vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
-        return;
+        const selection = await vscode.window.showErrorMessage(
+            'XS Engine path not set. Please locate xs.exe',
+            'Browse...',
+            'Cancel'
+        );
+
+        if (selection === 'Browse...') {
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                openLabel: 'Select XS Engine',
+                filters: {
+                    'Executables': ['exe']
+                }
+            });
+
+            if (fileUri && fileUri[0]) {
+                enginePath = fileUri[0].fsPath;
+                const engineDir = path.dirname(enginePath);
+                await config.update('enginePath', enginePath, vscode.ConfigurationTarget.Global);
+                await config.update('workingDirectory', engineDir, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`XS Engine path set to: ${enginePath}`);
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
     }
 
     // Get current workspace folder
@@ -138,15 +151,40 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(runEngine);
 
     // Package Game command
-    let packageGame = vscode.commands.registerCommand('xs-vscode.packageGame', () => {
+    let packageGame = vscode.commands.registerCommand('xs-vscode.packageGame', async () => {
         const config = vscode.workspace.getConfiguration('xs');
         let enginePath = config.get<string>('enginePath', '');
         let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
 
         // Validate engine path
         if (!enginePath) {
-            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
-            return;
+            const selection = await vscode.window.showErrorMessage(
+                'XS Engine path not set. Please locate xs.exe',
+                'Browse...',
+                'Cancel'
+            );
+
+            if (selection === 'Browse...') {
+                const fileUri = await vscode.window.showOpenDialog({
+                    canSelectMany: false,
+                    openLabel: 'Select XS Engine',
+                    filters: {
+                        'Executables': ['exe']
+                    }
+                });
+
+                if (fileUri && fileUri[0]) {
+                    enginePath = fileUri[0].fsPath;
+                    const engineDir = path.dirname(enginePath);
+                    await config.update('enginePath', enginePath, vscode.ConfigurationTarget.Global);
+                    await config.update('workingDirectory', engineDir, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage(`XS Engine path set to: ${enginePath}`);
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
         }
 
         // Get current workspace folder
@@ -192,15 +230,40 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(packageGame);
 
     // Package and Run command
-    let packageAndRun = vscode.commands.registerCommand('xs-vscode.packageAndRun', () => {
+    let packageAndRun = vscode.commands.registerCommand('xs-vscode.packageAndRun', async () => {
         const config = vscode.workspace.getConfiguration('xs');
         let enginePath = config.get<string>('enginePath', '');
         let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
 
         // Validate engine path
         if (!enginePath) {
-            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
-            return;
+            const selection = await vscode.window.showErrorMessage(
+                'XS Engine path not set. Please locate xs.exe',
+                'Browse...',
+                'Cancel'
+            );
+
+            if (selection === 'Browse...') {
+                const fileUri = await vscode.window.showOpenDialog({
+                    canSelectMany: false,
+                    openLabel: 'Select XS Engine',
+                    filters: {
+                        'Executables': ['exe']
+                    }
+                });
+
+                if (fileUri && fileUri[0]) {
+                    enginePath = fileUri[0].fsPath;
+                    const engineDir = path.dirname(enginePath);
+                    await config.update('enginePath', enginePath, vscode.ConfigurationTarget.Global);
+                    await config.update('workingDirectory', engineDir, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage(`XS Engine path set to: ${enginePath}`);
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
         }
 
         // Get current workspace folder
@@ -292,10 +355,10 @@ class XsLaunchConfigurationProvider implements vscode.DebugConfigurationProvider
 // Launch Handler
 // Handles launching the game when F5 is pressed or Run button is clicked
 class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
-    createDebugAdapterDescriptor(
+    async createDebugAdapterDescriptor(
         session: vscode.DebugSession,
         executable: vscode.DebugAdapterExecutable | undefined
-    ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+    ): Promise<vscode.DebugAdapterDescriptor | null> {
         const config = session.configuration;
         const packageFirst = config.packageFirst || false;
 
@@ -305,8 +368,33 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
         let workingDir = vsConfig.get<string>('workingDirectory', '${workspaceFolder}');
 
         if (!enginePath) {
-            vscode.window.showErrorMessage('XS Engine path not set. Please configure it in settings (xs.enginePath)');
-            return null;
+            const selection = await vscode.window.showErrorMessage(
+                'XS Engine path not set. Please locate xs.exe',
+                'Browse...',
+                'Cancel'
+            );
+
+            if (selection === 'Browse...') {
+                const fileUri = await vscode.window.showOpenDialog({
+                    canSelectMany: false,
+                    openLabel: 'Select XS Engine',
+                    filters: {
+                        'Executables': ['exe']
+                    }
+                });
+
+                if (fileUri && fileUri[0]) {
+                    enginePath = fileUri[0].fsPath;
+                    const engineDir = path.dirname(enginePath);
+                    await vsConfig.update('enginePath', enginePath, vscode.ConfigurationTarget.Global);
+                    await vsConfig.update('workingDirectory', engineDir, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage(`XS Engine path set to: ${enginePath}`);
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
         }
 
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
