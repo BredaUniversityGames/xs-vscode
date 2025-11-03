@@ -8,12 +8,29 @@ interface PackageEntry {
     isCompressed: boolean;
 }
 
+interface PackageInfo {
+    magic: bigint;
+    version: number;
+    versionString: string;
+    entries: PackageEntry[];
+}
+
 class PackageParser {
-    static async parse(uri: vscode.Uri): Promise<PackageEntry[]> {
+    // Magic number to identify xs package files: 0x454E49474E455358 = "XSENGINE"
+    private static readonly MAGIC_NUMBER = 0x454E49474E455358n;
+
+    static async parse(uri: vscode.Uri): Promise<PackageInfo> {
         const data = await vscode.workspace.fs.readFile(uri);
         const buffer = Buffer.from(data);
 
         let offset = 0;
+
+        // Helper to read uint32_t (little-endian)
+        const readUInt32 = (): number => {
+            const value = buffer.readUInt32LE(offset);
+            offset += 4;
+            return value;
+        };
 
         // Helper to read uint64_t (little-endian)
         const readUInt64 = (): bigint => {
@@ -36,6 +53,25 @@ class PackageParser {
             offset += 1;
             return value;
         };
+
+        // Helper to decode version from uint32 to "YY.BuildNumber" format
+        const decodeVersion = (encodedVersion: number): string => {
+            const year = (encodedVersion >> 16) & 0xFFFF;
+            const buildNumber = encodedVersion & 0xFFFF;
+            return `${year}.${buildNumber}`;
+        };
+
+        // Read magic number (64-bit)
+        const magic = readUInt64();
+        if (magic !== this.MAGIC_NUMBER) {
+            throw new Error(`Invalid package file: magic number mismatch (expected 0x${this.MAGIC_NUMBER.toString(16).toUpperCase()}, got 0x${magic.toString(16).toUpperCase()})`);
+        }
+        console.log(`Magic number: 0x${magic.toString(16).toUpperCase()}`);
+
+        // Read version
+        const version = readUInt32();
+        const versionString = decodeVersion(version);
+        console.log(`Package version: ${versionString}`);
 
         // Read entry count
         const entryCount = Number(readUInt64());
@@ -60,7 +96,12 @@ class PackageParser {
         // offset now points to start of data section
         console.log(`Data section starts at offset: ${offset}`);
 
-        return entries;
+        return {
+            magic,
+            version,
+            versionString,
+            entries
+        };
     }
 }
 
@@ -85,14 +126,15 @@ export class PackageEditorProvider implements vscode.CustomReadonlyEditorProvide
         };
 
         try {
-            const entries = await PackageParser.parse(document.uri);
-            webviewPanel.webview.html = this.getHtmlContent(entries, document.uri);
+            const packageInfo = await PackageParser.parse(document.uri);
+            webviewPanel.webview.html = this.getHtmlContent(packageInfo, document.uri);
         } catch (error) {
             webviewPanel.webview.html = this.getErrorHtml(error);
         }
     }
 
-    private getHtmlContent(entries: PackageEntry[], uri: vscode.Uri): string {
+    private getHtmlContent(packageInfo: PackageInfo, uri: vscode.Uri): string {
+        const entries = packageInfo.entries;
         const totalSize = entries.reduce((sum, e) => sum + Number(e.uncompressedSize), 0);
         const totalData = entries.reduce((sum, e) => sum + Number(e.dataLength), 0);
 
@@ -131,8 +173,13 @@ export class PackageEditorProvider implements vscode.CustomReadonlyEditorProvide
                     border-bottom: 1px solid var(--vscode-panel-border);
                 }
                 .header h2 {
-                    margin: 0 0 10px 0;
+                    margin: 0 0 5px 0;
                     color: var(--vscode-foreground);
+                }
+                .version {
+                    margin-bottom: 10px;
+                    font-size: 0.85em;
+                    color: var(--vscode-descriptionForeground);
                 }
                 .stats {
                     display: flex;
@@ -184,6 +231,7 @@ export class PackageEditorProvider implements vscode.CustomReadonlyEditorProvide
         <body>
             <div class="header">
                 <h2>Package Contents</h2>
+                <div class="version">Version: ${this.escapeHtml(packageInfo.versionString)}</div>
                 <div class="stats">
                     <div class="stat-item">
                         <span class="stat-label">Files:</span>
