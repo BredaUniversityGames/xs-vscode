@@ -1,6 +1,6 @@
 # XS Game Engine Tools
 
-Visual Studio Code extension providing comprehensive tooling for the XS game engine, including package viewing, animation editing, and debugging support.
+Visual Studio Code extension providing comprehensive tooling for the XS game engine, including package viewing and animation editing.
 
 ## Features
 
@@ -15,13 +15,6 @@ Visual Studio Code extension providing comprehensive tooling for the XS game eng
 - `xs: package game` - Package your game into an `.xs` file
 - `xs: package and run` - Package and immediately run your game
 - `xs: show engine info` - Display information about the configured engine
-
-### Debugging Support
-
-Integrated debugger for XS Game Engine with support for:
-- Launch configurations for running games directly or from packaged `.xs` files
-- Automatic packaging before launch (optional)
-- Wren language support
 
 ### Language Support
 
@@ -83,7 +76,6 @@ Initial release of XS Game Engine Tools featuring:
 - Package viewer for `.xs` files
 - Animation editor for `.xsanim` files
 - Engine integration commands
-- Debug adapter for XS Game Engine
 
 ## Repository
 

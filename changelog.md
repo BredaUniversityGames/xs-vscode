@@ -2,8 +2,17 @@
 
 All notable changes to the "xs-vscode" extension will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## [0.1.0] - 2025-11-11
 
-## [Unreleased]
+### Added
+- MIT license file (license.txt)
 
+## [0.0.1] - 2025-11-11
+
+### Added
 - Initial release
+- XS Package Viewer for .xs files
+- XS Animation Editor for .xsanim files with timeline and grid view
+- Commands: run engine, package game, package and run, show engine info
+- Language support for .xs and .xsanim files
+- Configuration settings for engine path and working directory
