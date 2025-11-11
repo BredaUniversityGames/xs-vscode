@@ -76,9 +76,123 @@ function createStatusBarItems(context: vscode.ExtensionContext) {
     runStatusBarItem.show();
 
     context.subscriptions.push(runStatusBarItem);
+
+    // Create version status bar item (on the right side, like Python extension)
+    const versionStatusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right,
+        100 // High priority (appears leftmost on right side)
+    );
+
+    versionStatusBarItem.command = 'xs-vscode.showEngineInfo';
+    versionStatusBarItem.tooltip = 'XS Engine Version';
+
+    // Update the version display
+    updateEngineVersion(versionStatusBarItem);
+
+    context.subscriptions.push(versionStatusBarItem);
+
+    // Watch for configuration changes to update version
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('xs.enginePath')) {
+                updateEngineVersion(versionStatusBarItem);
+            }
+        })
+    );
+}
+
+async function updateEngineVersion(statusBarItem: vscode.StatusBarItem) {
+    const config = vscode.workspace.getConfiguration('xs');
+    const enginePath = config.get<string>('enginePath', '');
+
+    if (!enginePath) {
+        statusBarItem.text = '$(circle-slash) xs: not configured';
+        statusBarItem.tooltip = 'XS Engine not configured. Click to set path.';
+        statusBarItem.show();
+        return;
+    }
+
+    try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+
+        // Try to get version from xs version
+        const { stdout } = await execAsync(`"${enginePath}" version`);
+        const version = stdout.trim();
+
+        statusBarItem.text = `$(game) xs ${version}`;
+        statusBarItem.tooltip = `XS Engine ${version}\nPath: ${enginePath}`;
+        statusBarItem.show();
+    } catch (error) {
+        // If version command fails, just show that xs is configured
+        statusBarItem.text = '$(game) xs';
+        statusBarItem.tooltip = `XS Engine\nPath: ${enginePath}`;
+        statusBarItem.show();
+    }
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
+
+    // Show Engine Info command
+    let showEngineInfo = vscode.commands.registerCommand('xs-vscode.showEngineInfo', async () => {
+        const config = vscode.workspace.getConfiguration('xs');
+        const enginePath = config.get<string>('enginePath', '');
+
+        if (!enginePath) {
+            const selection = await vscode.window.showErrorMessage(
+                'XS Engine path not set. Please locate xs.exe',
+                'Browse...',
+                'Cancel'
+            );
+
+            if (selection === 'Browse...') {
+                const fileUri = await vscode.window.showOpenDialog({
+                    canSelectMany: false,
+                    openLabel: 'Select XS Engine',
+                    filters: {
+                        'Executables': ['exe']
+                    }
+                });
+
+                if (fileUri && fileUri[0]) {
+                    const newEnginePath = fileUri[0].fsPath;
+                    const engineDir = path.dirname(newEnginePath);
+                    await config.update('enginePath', newEnginePath, vscode.ConfigurationTarget.Global);
+                    await config.update('workingDirectory', engineDir, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage(`XS Engine path set to: ${newEnginePath}`);
+                }
+            }
+        } else {
+            try {
+                const { exec } = require('child_process');
+                const { promisify } = require('util');
+                const execAsync = promisify(exec);
+
+                const { stdout } = await execAsync(`"${enginePath}" version`);
+                const version = stdout.trim();
+
+                vscode.window.showInformationMessage(
+                    `XS Engine ${version}\nPath: ${enginePath}`,
+                    'Open Settings'
+                ).then(selection => {
+                    if (selection === 'Open Settings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'xs.enginePath');
+                    }
+                });
+            } catch (error) {
+                vscode.window.showInformationMessage(
+                    `XS Engine\nPath: ${enginePath}`,
+                    'Open Settings'
+                ).then(selection => {
+                    if (selection === 'Open Settings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'xs.enginePath');
+                    }
+                });
+            }
+        }
+    });
+    context.subscriptions.push(showEngineInfo);
 
     // Run Engine command
    let runEngine = vscode.commands.registerCommand('xs-vscode.runEngine', async () => {
