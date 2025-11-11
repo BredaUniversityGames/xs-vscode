@@ -1,12 +1,34 @@
 {
   "name": "xs-vscode",
-  "displayName": "xs-vscode",
+  "displayName": "XS Game Engine Tools",
   "description": "Package viewer and tools for the xs game engine",
   "version": "0.0.1",
+  "publisher": "BojanEndrovski",
+  "author": {
+    "name": "Bojan Endrovski"
+  },
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BredaUniversityGames/xs-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BredaUniversityGames/xs-vscode/issues"
+  },
+  "homepage": "https://github.com/BredaUniversityGames/xs-vscode#readme",
+  "keywords": [
+    "xs",
+    "game-engine",
+    "wren",
+    "package-viewer",
+    "animation-editor"
+  ],
   "engines": {
     "vscode": "^1.105.0"
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [
@@ -26,6 +48,10 @@
       {
         "command": "xs-vscode.packageAndRun",
         "title": "xs: package and run"
+      },
+      {
+        "command": "xs-vscode.showEngineInfo",
+        "title": "xs: show engine info"
       }
     ],
     "languages": [

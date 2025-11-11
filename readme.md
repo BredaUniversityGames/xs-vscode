@@ -1,71 +1,94 @@
-# xs-vscode README
+# XS Game Engine Tools
 
-This is the README for your extension "xs-vscode". After writing up a brief description, we recommend including the following sections.
+Visual Studio Code extension providing comprehensive tooling for the XS game engine, including package viewing, animation editing, and debugging support.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Custom Editors
 
-For example if there is an image subfolder under your extension project workspace:
+- **XS Package Viewer** - Visual editor for `.xs` package files
+- **XS Animation Editor** - Interactive editor for `.xsanim` animation files with timeline and grid view
 
-\!\[feature X\]\(images/feature-x.png\)
+### Commands
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- `xs: run engine` - Launch the XS game engine with your project
+- `xs: package game` - Package your game into an `.xs` file
+- `xs: package and run` - Package and immediately run your game
+- `xs: show engine info` - Display information about the configured engine
+
+### Debugging Support
+
+Integrated debugger for XS Game Engine with support for:
+- Launch configurations for running games directly or from packaged `.xs` files
+- Automatic packaging before launch (optional)
+- Wren language support
+
+### Language Support
+
+- Syntax highlighting and file icons for `.xs` and `.xsanim` files
+- Automatic activation when a `project.json` is detected in the workspace
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- XS Game Engine executable
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `xs.enginePath` - Path to the `xs` executable (e.g., `C:\path\to\xs.exe`)
+- `xs.workingDirectory` - Working directory when running the engine (default: `${workspaceFolder}`)
 
-## Known Issues
+## Getting Started
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+1. Install the extension
+2. Open a workspace containing an XS game project (with `project.json`)
+3. Configure the engine path in settings:
+   - Open VS Code settings (Ctrl+,)
+   - Search for "xs.enginePath"
+   - Set the path to your `xs.exe` executable
+4. Start using the XS commands and editors!
+
+## Debug Configurations
+
+The extension provides two debug configuration templates:
+
+**Run Game** - Launch the game from the source folder:
+```json
+{
+  "type": "xs",
+  "request": "launch",
+  "name": "Run Game",
+  "projectFolder": "${workspaceFolder}",
+  "packageFirst": false
+}
+```
+
+**Package & Run** - Package and launch from `.xs` file:
+```json
+{
+  "type": "xs",
+  "request": "launch",
+  "name": "Package & Run",
+  "projectFolder": "${workspaceFolder}",
+  "packageFirst": true
+}
+```
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
+Initial release of XS Game Engine Tools featuring:
+- Package viewer for `.xs` files
+- Animation editor for `.xsanim` files
+- Engine integration commands
+- Debug adapter for XS Game Engine
 
-Initial release of ...
+## Repository
 
-### 1.0.1
+[https://github.com/BredaUniversityGames/xs-vscode](https://github.com/BredaUniversityGames/xs-vscode)
 
-Fixed issue #.
+## License
 
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+MIT
