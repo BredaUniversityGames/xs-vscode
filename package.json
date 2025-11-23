@@ -110,7 +110,7 @@
         "xs.enginePath": {
           "type": "string",
           "default": "",
-          "description": "Path to xs.exe executable (e.g., C:\\path\\to\\xs.exe)"
+          "description": "Path to the XS Engine executable (Windows: C:\\path\\to\\xs.exe, macOS: /path/to/xs.app, Linux: /path/to/xs)"
         },
         "xs.workingDirectory": {
           "type": "string",

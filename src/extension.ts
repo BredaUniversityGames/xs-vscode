@@ -3,6 +3,120 @@ import * as path from 'path';
 import { PackageEditorProvider } from './packageEditor';
 import { AnimationEditorProvider } from './animationEditor';
 
+// Platform detection utilities
+function isWindows(): boolean {
+    return process.platform === 'win32';
+}
+
+function isMacOS(): boolean {
+    return process.platform === 'darwin';
+}
+
+// Get platform-appropriate file dialog filters for executables
+function getExecutableFilters(): { [name: string]: string[] } | undefined {
+    if (isWindows()) {
+        return { 'Executables': ['exe'] };
+    }
+    if (isMacOS()) {
+        // Allow .app bundles on macOS
+        return { 'Applications': ['app'] };
+    }
+    // On Linux, don't filter - executables have no extension
+    return undefined;
+}
+
+// Get the executable name for display in messages
+function getExecutableName(): string {
+    if (isWindows()) {
+        return 'xs.exe';
+    }
+    if (isMacOS()) {
+        return 'xs.app or xs executable';
+    }
+    return 'xs';
+}
+
+// Resolve the actual executable path from a user-selected path
+// On macOS, if user selects an .app bundle, find the executable inside it
+async function resolveExecutablePath(selectedPath: string): Promise<string> {
+    if (isMacOS() && selectedPath.endsWith('.app')) {
+        // Look for executable inside the .app bundle
+        // Standard location: AppName.app/Contents/MacOS/<executable>
+        const macOSDir = path.join(selectedPath, 'Contents', 'MacOS');
+        const appName = path.basename(selectedPath, '.app');
+
+        // Try common executable names
+        const possibleNames = [
+            appName,           // Same name as app (e.g., xs.app -> xs)
+            appName.toLowerCase(),
+            'xs',
+            'XS'
+        ];
+
+        const fs = require('fs').promises;
+        for (const name of possibleNames) {
+            const execPath = path.join(macOSDir, name);
+            try {
+                await fs.access(execPath, require('fs').constants.X_OK);
+                return execPath;
+            } catch {
+                // Try next name
+            }
+        }
+
+        // If we can't find a known executable, try to find any executable in MacOS dir
+        try {
+            const files = await fs.readdir(macOSDir);
+            if (files.length > 0) {
+                // Return the first file (usually there's only one main executable)
+                return path.join(macOSDir, files[0]);
+            }
+        } catch {
+            // Fall through to return original path
+        }
+    }
+
+    return selectedPath;
+}
+
+// Build a shell command that works on the current platform
+function buildRunCommand(enginePath: string, projectFolder: string): string {
+    if (isWindows()) {
+        return `& "${enginePath}" run "${projectFolder}"`;
+    }
+    // macOS: use 'open' command for .app bundles
+    if (isMacOS() && enginePath.endsWith('.app')) {
+        return `open "${enginePath}" --args run "${projectFolder}"`;
+    }
+    // macOS/Linux direct executable
+    return `"${enginePath}" run "${projectFolder}"`;
+}
+
+function buildPackageCommand(enginePath: string, projectFolder: string, outputPath: string): string {
+    if (isWindows()) {
+        return `& "${enginePath}" package "${projectFolder}" "${outputPath}"`;
+    }
+    // macOS: use 'open' command for .app bundles
+    if (isMacOS() && enginePath.endsWith('.app')) {
+        return `open "${enginePath}" --args package "${projectFolder}" "${outputPath}"`;
+    }
+    // macOS/Linux direct executable
+    return `"${enginePath}" package "${projectFolder}" "${outputPath}"`;
+}
+
+function buildPackageAndRunCommand(enginePath: string, projectFolder: string, outputPath: string): string {
+    if (isWindows()) {
+        // PowerShell: use & operator and $? for exit code check
+        return `& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`;
+    }
+    // macOS: use 'open' command for .app bundles
+    if (isMacOS() && enginePath.endsWith('.app')) {
+        return `open "${enginePath}" --args package "${projectFolder}" "${outputPath}" && open "${enginePath}" --args run "${outputPath}"`;
+    }
+    // macOS/Linux direct executable
+    return `"${enginePath}" package "${projectFolder}" "${outputPath}" && "${enginePath}" run "${outputPath}"`;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
 
@@ -117,8 +231,10 @@ async function updateEngineVersion(statusBarItem: vscode.StatusBarItem) {
         const { promisify } = require('util');
         const execAsync = promisify(exec);
 
-        // Try to get version from xs version
-        const { stdout } = await execAsync(`"${enginePath}" version`);
+        // For .app bundles, we need to call the executable directly to capture stdout
+        // (open command doesn't capture output)
+        const executablePath = await resolveExecutablePath(enginePath);
+        const { stdout } = await execAsync(`"${executablePath}" version`);
         const version = stdout.trim();
 
         statusBarItem.text = `$(game) xs ${version}`;
@@ -141,18 +257,17 @@ function registerCommands(context: vscode.ExtensionContext) {
 
         if (!enginePath) {
             const selection = await vscode.window.showErrorMessage(
-                'XS Engine path not set. Please locate xs.exe',
+                `XS Engine path not set. Please locate ${getExecutableName()}`,
                 'Browse...',
                 'Cancel'
             );
 
             if (selection === 'Browse...') {
+                const filters = getExecutableFilters();
                 const fileUri = await vscode.window.showOpenDialog({
                     canSelectMany: false,
                     openLabel: 'Select XS Engine',
-                    filters: {
-                        'Executables': ['exe']
-                    }
+                    ...(filters && { filters })
                 });
 
                 if (fileUri && fileUri[0]) {
@@ -169,7 +284,9 @@ function registerCommands(context: vscode.ExtensionContext) {
                 const { promisify } = require('util');
                 const execAsync = promisify(exec);
 
-                const { stdout } = await execAsync(`"${enginePath}" version`);
+                // For .app bundles, resolve to the executable inside
+                const executablePath = await resolveExecutablePath(enginePath);
+                const { stdout } = await execAsync(`"${executablePath}" version`);
                 const version = stdout.trim();
 
                 vscode.window.showInformationMessage(
@@ -200,24 +317,23 @@ function registerCommands(context: vscode.ExtensionContext) {
     let enginePath = config.get<string>('enginePath', '');
     let workingDir = config.get<string>('workingDirectory', '${workspaceFolder}');
 
-    console.log('Engine path:', enginePath);
+    console.log('Engine path from settings:', enginePath);
     console.log('Working dir:', workingDir);
 
     // Validate engine path
     if (!enginePath) {
         const selection = await vscode.window.showErrorMessage(
-            'XS Engine path not set. Please locate xs.exe',
+            `XS Engine path not set. Please locate ${getExecutableName()}`,
             'Browse...',
             'Cancel'
         );
 
         if (selection === 'Browse...') {
+            const filters = getExecutableFilters();
             const fileUri = await vscode.window.showOpenDialog({
                 canSelectMany: false,
                 openLabel: 'Select XS Engine',
-                filters: {
-                    'Executables': ['exe']
-                }
+                ...(filters && { filters })
             });
 
             if (fileUri && fileUri[0]) {
@@ -258,7 +374,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     });
 
     terminal.show();
-   	terminal.sendText(`& "${enginePath}" run "${projectFolder}"`);
+   	terminal.sendText(buildRunCommand(enginePath, projectFolder));
 
     console.log('Terminal command sent');
 	});
@@ -273,18 +389,17 @@ function registerCommands(context: vscode.ExtensionContext) {
         // Validate engine path
         if (!enginePath) {
             const selection = await vscode.window.showErrorMessage(
-                'XS Engine path not set. Please locate xs.exe',
+                `XS Engine path not set. Please locate ${getExecutableName()}`,
                 'Browse...',
                 'Cancel'
             );
 
             if (selection === 'Browse...') {
+                const filters = getExecutableFilters();
                 const fileUri = await vscode.window.showOpenDialog({
                     canSelectMany: false,
                     openLabel: 'Select XS Engine',
-                    filters: {
-                        'Executables': ['exe']
-                    }
+                    ...(filters && { filters })
                 });
 
                 if (fileUri && fileUri[0]) {
@@ -337,7 +452,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         });
 
         terminal.show();
-        terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}"`);
+        terminal.sendText(buildPackageCommand(enginePath, projectFolder, outputPath));
 
         vscode.window.showInformationMessage(`Packaging ${folderName}...`);
     });
@@ -352,18 +467,17 @@ function registerCommands(context: vscode.ExtensionContext) {
         // Validate engine path
         if (!enginePath) {
             const selection = await vscode.window.showErrorMessage(
-                'XS Engine path not set. Please locate xs.exe',
+                `XS Engine path not set. Please locate ${getExecutableName()}`,
                 'Browse...',
                 'Cancel'
             );
 
             if (selection === 'Browse...') {
+                const filters = getExecutableFilters();
                 const fileUri = await vscode.window.showOpenDialog({
                     canSelectMany: false,
                     openLabel: 'Select XS Engine',
-                    filters: {
-                        'Executables': ['exe']
-                    }
+                    ...(filters && { filters })
                 });
 
                 if (fileUri && fileUri[0]) {
@@ -417,7 +531,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
         terminal.show();
         // Chain both commands: package first, then run if successful
-        terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`);
+        terminal.sendText(buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
 
         vscode.window.showInformationMessage(`Packaging and running ${folderName}...`);
     });
@@ -483,18 +597,17 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
 
         if (!enginePath) {
             const selection = await vscode.window.showErrorMessage(
-                'XS Engine path not set. Please locate xs.exe',
+                `XS Engine path not set. Please locate ${getExecutableName()}`,
                 'Browse...',
                 'Cancel'
             );
 
             if (selection === 'Browse...') {
+                const filters = getExecutableFilters();
                 const fileUri = await vscode.window.showOpenDialog({
                     canSelectMany: false,
                     openLabel: 'Select XS Engine',
-                    filters: {
-                        'Executables': ['exe']
-                    }
+                    ...(filters && { filters })
                 });
 
                 if (fileUri && fileUri[0]) {
@@ -540,7 +653,7 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
             });
 
             terminal.show();
-            terminal.sendText(`& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`);
+            terminal.sendText(buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
         } else {
             // Just Run
             const terminal = vscode.window.createTerminal({
@@ -549,7 +662,7 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
             });
 
             terminal.show();
-            terminal.sendText(`& "${enginePath}" run "${projectFolder}"`);
+            terminal.sendText(buildRunCommand(enginePath, projectFolder));
         }
 
         // Return null since we're just launching, not debugging

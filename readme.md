@@ -29,7 +29,10 @@ Visual Studio Code extension providing comprehensive tooling for the XS game eng
 
 This extension contributes the following settings:
 
-- `xs.enginePath` - Path to the `xs` executable (e.g., `C:\path\to\xs.exe`)
+- `xs.enginePath` - Path to the XS Engine executable:
+  - Windows: `C:\path\to\xs.exe`
+  - macOS: `/path/to/xs.app` (select the .app bundle, the extension will find the executable inside)
+  - Linux: `/path/to/xs`
 - `xs.workingDirectory` - Working directory when running the engine (default: `${workspaceFolder}`)
 
 ## Getting Started
@@ -37,9 +40,9 @@ This extension contributes the following settings:
 1. Install the extension
 2. Open a workspace containing an XS game project (with `project.json`)
 3. Configure the engine path in settings:
-   - Open VS Code settings (Ctrl+,)
+   - Open VS Code settings (Ctrl+, on Windows/Linux, Cmd+, on macOS)
    - Search for "xs.enginePath"
-   - Set the path to your `xs.exe` executable
+   - Set the path to your XS Engine executable
 4. Start using the XS commands and editors!
 
 ## Debug Configurations
