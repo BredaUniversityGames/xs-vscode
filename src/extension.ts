@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { PackageEditorProvider } from './packageEditor';
 import { AnimationEditorProvider } from './animationEditor';
+import { SpriteEditorProvider } from './spriteEditor';
 
 // Platform detection utilities
 function isWindows(): boolean {
@@ -154,6 +155,9 @@ function registerEditors(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(
         AnimationEditorProvider.register(context)
+    );
+    context.subscriptions.push(
+        SpriteEditorProvider.register(context)
     );
 }
 

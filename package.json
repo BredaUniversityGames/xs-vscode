@@ -80,6 +80,19 @@
           "light": "./media/icons/xsanim-file.svg",
           "dark": "./media/icons/xsanim-file.svg"
         }
+      },
+      {
+        "id": "xs-sprite",
+        "extensions": [
+          ".xssprite"
+        ],
+        "aliases": [
+          "xs sprite"
+        ],
+        "icon": {
+          "light": "./media/icons/xssprite-file.svg",
+          "dark": "./media/icons/xssprite-file.svg"
+        }
       }
     ],
     "customEditors": [
@@ -99,6 +112,16 @@
         "selector": [
           {
             "filenamePattern": "*.xsanim"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "xs.spriteEditor",
+        "displayName": "XS Sprite Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.xssprite"
           }
         ],
         "priority": "default"
