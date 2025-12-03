@@ -80,41 +80,33 @@ async function resolveExecutablePath(selectedPath: string): Promise<string> {
 }
 
 // Build a shell command that works on the current platform
-function buildRunCommand(enginePath: string, projectFolder: string): string {
+// For .app bundles, we call the executable inside directly to keep output in terminal
+async function buildRunCommand(enginePath: string, projectFolder: string): Promise<string> {
     if (isWindows()) {
         return `& "${enginePath}" run "${projectFolder}"`;
     }
-    // macOS: use 'open' command for .app bundles
-    if (isMacOS() && enginePath.endsWith('.app')) {
-        return `open "${enginePath}" --args run "${projectFolder}"`;
-    }
-    // macOS/Linux direct executable
-    return `"${enginePath}" run "${projectFolder}"`;
+    // Resolve .app bundle to executable inside
+    const execPath = await resolveExecutablePath(enginePath);
+    return `"${execPath}" run "${projectFolder}"`;
 }
 
-function buildPackageCommand(enginePath: string, projectFolder: string, outputPath: string): string {
+async function buildPackageCommand(enginePath: string, projectFolder: string, outputPath: string): Promise<string> {
     if (isWindows()) {
         return `& "${enginePath}" package "${projectFolder}" "${outputPath}"`;
     }
-    // macOS: use 'open' command for .app bundles
-    if (isMacOS() && enginePath.endsWith('.app')) {
-        return `open "${enginePath}" --args package "${projectFolder}" "${outputPath}"`;
-    }
-    // macOS/Linux direct executable
-    return `"${enginePath}" package "${projectFolder}" "${outputPath}"`;
+    // Resolve .app bundle to executable inside
+    const execPath = await resolveExecutablePath(enginePath);
+    return `"${execPath}" package "${projectFolder}" "${outputPath}"`;
 }
 
-function buildPackageAndRunCommand(enginePath: string, projectFolder: string, outputPath: string): string {
+async function buildPackageAndRunCommand(enginePath: string, projectFolder: string, outputPath: string): Promise<string> {
     if (isWindows()) {
         // PowerShell: use & operator and $? for exit code check
         return `& "${enginePath}" package "${projectFolder}" "${outputPath}" ; if ($?) { & "${enginePath}" run "${outputPath}" }`;
     }
-    // macOS: use 'open' command for .app bundles
-    if (isMacOS() && enginePath.endsWith('.app')) {
-        return `open "${enginePath}" --args package "${projectFolder}" "${outputPath}" && open "${enginePath}" --args run "${outputPath}"`;
-    }
-    // macOS/Linux direct executable
-    return `"${enginePath}" package "${projectFolder}" "${outputPath}" && "${enginePath}" run "${outputPath}"`;
+    // Resolve .app bundle to executable inside
+    const execPath = await resolveExecutablePath(enginePath);
+    return `"${execPath}" package "${projectFolder}" "${outputPath}" && "${execPath}" run "${outputPath}"`;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -374,7 +366,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     });
 
     terminal.show();
-   	terminal.sendText(buildRunCommand(enginePath, projectFolder));
+   	terminal.sendText(await buildRunCommand(enginePath, projectFolder));
 
     console.log('Terminal command sent');
 	});
@@ -452,7 +444,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         });
 
         terminal.show();
-        terminal.sendText(buildPackageCommand(enginePath, projectFolder, outputPath));
+        terminal.sendText(await buildPackageCommand(enginePath, projectFolder, outputPath));
 
         vscode.window.showInformationMessage(`Packaging ${folderName}...`);
     });
@@ -531,7 +523,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
         terminal.show();
         // Chain both commands: package first, then run if successful
-        terminal.sendText(buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
+        terminal.sendText(await buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
 
         vscode.window.showInformationMessage(`Packaging and running ${folderName}...`);
     });
@@ -653,7 +645,7 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
             });
 
             terminal.show();
-            terminal.sendText(buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
+            terminal.sendText(await buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
         } else {
             // Just Run
             const terminal = vscode.window.createTerminal({
@@ -662,7 +654,7 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
             });
 
             terminal.show();
-            terminal.sendText(buildRunCommand(enginePath, projectFolder));
+            terminal.sendText(await buildRunCommand(enginePath, projectFolder));
         }
 
         // Return null since we're just launching, not debugging
