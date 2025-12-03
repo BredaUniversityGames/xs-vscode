@@ -189,7 +189,9 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                     // Convert relative path to webview URI
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
                     if (workspaceFolder && message.path) {
-                        const fullPath = path.join(workspaceFolder.uri.fsPath, message.path);
+                        // Remove [game] or other placeholders and clean the path
+                        let cleanPath = message.path.replace(/^\[game\]\//, '').replace(/^\[game\]\\/, '');
+                        const fullPath = path.join(workspaceFolder.uri.fsPath, cleanPath);
                         const imageUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(fullPath));
                         webviewPanel.webview.postMessage({
                             type: 'imageUri',
@@ -473,14 +475,28 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                     pointer-events: auto;
                 }
 
+                /* Resize Handle */
+                .resize-handle {
+                    height: 4px;
+                    background: var(--vscode-panel-border);
+                    cursor: ns-resize;
+                    flex-shrink: 0;
+                    position: relative;
+                }
+
+                .resize-handle:hover {
+                    background: var(--vscode-focusBorder);
+                }
+
                 /* Bottom Panel */
                 .bottom-panel {
                     height: 200px;
+                    min-height: 100px;
+                    max-height: 600px;
                     flex-shrink: 0;
                     display: flex;
                     flex-direction: column;
                     background: var(--vscode-editor-background);
-                    border-top: 1px solid var(--vscode-panel-border);
                 }
 
                 .preview-header {
@@ -624,8 +640,11 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                 </div>
             </div>
 
+            <!-- Resize Handle -->
+            <div class="resize-handle" id="resize-handle"></div>
+
             <!-- Bottom Panel -->
-            <div class="bottom-panel">
+            <div class="bottom-panel" id="bottom-panel">
                 <div class="preview-header">
                     <span>Preview</span>
                     <div class="preview-controls">
@@ -678,6 +697,40 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                 document.getElementById('preview-zoom-select').addEventListener('change', (e) => {
                     previewZoom = parseInt(e.target.value) || 2;
                     renderPreview();
+                });
+
+                // Panel resize functionality
+                const resizeHandle = document.getElementById('resize-handle');
+                const bottomPanel = document.getElementById('bottom-panel');
+                let isResizing = false;
+                let startY = 0;
+                let startHeight = 0;
+
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    isResizing = true;
+                    startY = e.clientY;
+                    startHeight = bottomPanel.offsetHeight;
+                    document.body.style.cursor = 'ns-resize';
+                    e.preventDefault();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizing) return;
+
+                    const delta = startY - e.clientY;
+                    const newHeight = startHeight + delta;
+
+                    // Respect min and max height
+                    if (newHeight >= 100 && newHeight <= 600) {
+                        bottomPanel.style.height = newHeight + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isResizing) {
+                        isResizing = false;
+                        document.body.style.cursor = '';
+                    }
                 });
 
                 // Update remove button state
@@ -808,13 +861,16 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                         case 'imageUri':
                             // Received webview URI for image, now load it
                             const canvasView = document.getElementById('canvas-view');
+                            console.log('Received imageUri:', message.uri);
                             spriteImage = new Image();
                             spriteImage.onload = () => {
+                                console.log('Image loaded successfully:', spriteImage.width, 'x', spriteImage.height);
                                 drawCanvasView();
                                 renderPreview();
                             };
-                            spriteImage.onerror = () => {
-                                canvasView.innerHTML = '<div class="canvas-placeholder">Failed to load image</div>';
+                            spriteImage.onerror = (err) => {
+                                console.error('Failed to load image:', message.uri, err);
+                                canvasView.innerHTML = '<div class="canvas-placeholder">Failed to load image: ' + currentData.image + '</div>';
                                 spriteImage = null;
                             };
                             spriteImage.src = message.uri;
@@ -861,6 +917,9 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                         spriteImage = null;
                         return;
                     }
+
+                    console.log('Loading sprite sheet:', currentData.image);
+                    canvasView.innerHTML = '<div class="canvas-placeholder">Loading image...</div>';
 
                     // Request webview URI from extension
                     vscode.postMessage({

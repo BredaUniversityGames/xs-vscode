@@ -199,7 +199,9 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     // Convert relative path to webview URI
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
                     if (workspaceFolder && message.path) {
-                        const fullPath = path.join(workspaceFolder.uri.fsPath, message.path);
+                        // Remove [game] or other placeholders and clean the path
+                        let cleanPath = message.path.replace(/^\[game\]\//, '').replace(/^\[game\]\\/, '');
+                        const fullPath = path.join(workspaceFolder.uri.fsPath, cleanPath);
                         const imageUri = webviewPanel.webview.asWebviewUri(vscode.Uri.file(fullPath));
                         webviewPanel.webview.postMessage({
                             type: 'imageUri',
