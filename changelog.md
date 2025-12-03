@@ -2,6 +2,11 @@
 
 All notable changes to the "xs-vscode" extension will be documented in this file.
 
+## [0.1.1] - 2025-12-03
+
+### Added
+- macOS support for the XS Game Engine
+
 ## [0.1.0] - 2025-11-11
 
 ### Added
