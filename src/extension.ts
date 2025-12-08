@@ -13,16 +13,21 @@ function isMacOS(): boolean {
     return process.platform === 'darwin';
 }
 
+function isLinux(): boolean {
+    return process.platform === 'linux';
+}
+
 // Get platform-appropriate file dialog filters for executables
 function getExecutableFilters(): { [name: string]: string[] } | undefined {
     if (isWindows()) {
         return { 'Executables': ['exe'] };
     }
     if (isMacOS()) {
-        // Allow .app bundles on macOS
         return { 'Applications': ['app'] };
     }
-    // On Linux, don't filter - executables have no extension
+    if (isLinux()) {
+        return undefined;
+    }
     return undefined;
 }
 
@@ -33,6 +38,9 @@ function getExecutableName(): string {
     }
     if (isMacOS()) {
         return 'xs.app or xs executable';
+    }
+    if (isLinux()) {
+        return 'xs';
     }
     return 'xs';
 }
