@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { PackageEditorProvider } from './packageEditor';
-import { AnimationEditorProvider } from './animationEditor';
-import { SpriteEditorProvider } from './spriteEditor';
+import { AnimationEditorProvider } from './animationEditor/animationEditor';
+import { SpriteEditorProvider } from './spriteEditor/spriteEditor';
 
 // Platform detection utilities
 function isWindows(): boolean {

@@ -1,0 +1,325 @@
+body {
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--vscode-panel-border);
+}
+
+/* Top Bar */
+.top-bar {
+    display: flex;
+    gap: 12px;
+    padding: 0 12px;
+    height: 35px;
+    background: var(--vscode-tab-inactiveBackground);
+    align-items: center;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.top-bar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.top-bar-group label {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.top-bar-group input {
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    padding: 4px 8px;
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+    outline: none;
+    border-radius: 2px;
+}
+
+.top-bar-group input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.top-bar-group input.image-path {
+    width: 450px;
+}
+
+/* Main Content Area */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Sprite List Panel */
+.sprite-list-panel {
+    width: 250px;
+    flex-shrink: 0;
+    background: var(--vscode-tab-inactiveBackground);
+    display: flex;
+    flex-direction: column;
+}
+
+.sprite-list-header {
+    padding: 0 8px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--vscode-foreground);
+    background: var(--vscode-tab-inactiveBackground);
+}
+
+.sprite-list-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.sprite-list {
+    flex: 1;
+    overflow-y: auto;
+    outline: none;
+}
+
+.sprite-item {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    height: 22px;
+    cursor: pointer;
+    gap: 8px;
+    user-select: none;
+}
+
+.sprite-item:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+
+.sprite-item.selected {
+    background: var(--vscode-list-inactiveSelectionBackground);
+    color: var(--vscode-list-inactiveSelectionForeground);
+}
+
+.sprite-list:focus-within .sprite-item.selected {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+.sprite-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sprite-item-name {
+    flex: 1;
+    font-size: 13px;
+}
+
+/* Panel Separators */
+.panel-separator {
+    width: 1px;
+    background: var(--vscode-panel-border);
+    flex-shrink: 0;
+}
+
+.panel-separator-horizontal {
+    height: 1px;
+    width: 100%;
+    background: var(--vscode-panel-border);
+    flex-shrink: 0;
+}
+
+/* Canvas View Panel */
+.canvas-view-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--vscode-editor-background);
+}
+
+.canvas-view-header {
+    padding: 0 8px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--vscode-foreground);
+}
+
+.canvas-view-header span {
+    flex: 1;
+}
+
+.canvas-view-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.canvas-view-controls select {
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    padding: 2px 4px;
+    font-family: var(--vscode-font-family);
+    font-size: 12px;
+    outline: none;
+    border-radius: 2px;
+}
+
+.canvas-view-content {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    position: relative;
+}
+
+.canvas-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+}
+
+.canvas-container {
+    position: relative;
+    display: inline-block;
+}
+
+.canvas-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#canvas-base {
+    position: absolute;
+    top: 0;
+    left: 0;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+}
+
+#canvas-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: crosshair;
+    pointer-events: auto;
+}
+
+/* Resize Handle */
+.resize-handle {
+    height: 4px;
+    background: var(--vscode-panel-border);
+    cursor: ns-resize;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.resize-handle:hover {
+    background: var(--vscode-focusBorder);
+}
+
+/* Bottom Panel */
+.bottom-panel {
+    height: 200px;
+    min-height: 100px;
+    max-height: 600px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--vscode-editor-background);
+}
+
+.preview-header {
+    padding: 0 8px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--vscode-foreground);
+}
+
+.preview-header span {
+    flex: 1;
+}
+
+.preview-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.preview-controls select {
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+    padding: 2px 4px;
+    font-family: var(--vscode-font-family);
+    font-size: 12px;
+    outline: none;
+    border-radius: 2px;
+}
+
+.preview-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    overflow: auto;
+    gap: 16px;
+}
+
+.preview-placeholder {
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+}
+
+.preview-canvas-container {
+    display: inline-block;
+}
+
+.preview-canvas-container canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 1px solid var(--vscode-panel-border);
+}
+
+.preview-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.preview-info-row {
+    display: flex;
+    gap: 4px;
+}
+
+.preview-info-label {
+    font-weight: 600;
+    min-width: 50px;
+}
