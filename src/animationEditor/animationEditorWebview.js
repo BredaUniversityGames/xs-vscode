@@ -365,6 +365,7 @@ function drawGridView() {
 
     // Create container
     gridView.innerHTML = '';
+    gridInteractionSetup = false; // Reset since we're creating new canvases
     const container = document.createElement('div');
     container.className = 'grid-canvas-container';
     container.style.width = zoomedWidth + 'px';
@@ -744,6 +745,7 @@ function renderPreview() {
     const previewHeight = cellHeight * scale;
 
     // Build preview HTML
+    previewControlsSetup = false; // Reset since we're rebuilding the preview
     previewEl.innerHTML = `
         <div class="preview-canvas-container">
             <canvas id="preview-canvas"></canvas>

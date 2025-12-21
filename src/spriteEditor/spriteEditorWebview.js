@@ -102,6 +102,16 @@ function setupEventListeners() {
         });
     }
 
+    const autoFitBtn = document.getElementById('auto-fit-sprite-btn');
+    if (autoFitBtn) {
+        autoFitBtn.addEventListener('click', () => {
+            if (!selectedSprite) {
+                return;
+            }
+            autoFitSprite(selectedSprite);
+        });
+    }
+
     // Sprite item selection
     const spriteList = document.getElementById('sprite-list');
     if (spriteList) {
@@ -272,12 +282,14 @@ function updateDocument() {
 // Update remove button state
 function updateRemoveButtonState() {
     const removeBtn = document.getElementById('remove-sprite-btn');
-    if (!removeBtn) return;
+    const autoFitBtn = document.getElementById('auto-fit-sprite-btn');
 
     if (selectedSprite && currentData.sprites[selectedSprite]) {
-        removeBtn.removeAttribute('disabled');
+        if (removeBtn) removeBtn.removeAttribute('disabled');
+        if (autoFitBtn) autoFitBtn.removeAttribute('disabled');
     } else {
-        removeBtn.setAttribute('disabled', 'true');
+        if (removeBtn) removeBtn.setAttribute('disabled', 'true');
+        if (autoFitBtn) autoFitBtn.setAttribute('disabled', 'true');
     }
 }
 
@@ -316,6 +328,90 @@ function rebuildSpriteList() {
     if (spriteImage) {
         redrawOverlay();
     }
+}
+
+// Auto-fit sprite to connected pixels using flood fill
+function autoFitSprite(spriteName) {
+    if (!spriteImage || !spriteImage.complete) {
+        return;
+    }
+
+    const sprite = currentData.sprites[spriteName];
+    if (!sprite) {
+        return;
+    }
+
+    // Create a temporary canvas to get pixel data
+    const canvas = document.createElement('canvas');
+    canvas.width = spriteImage.width;
+    canvas.height = spriteImage.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(spriteImage, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Start from center of current sprite
+    const centerX = Math.floor(sprite.x + sprite.width / 2);
+    const centerY = Math.floor(sprite.y + sprite.height / 2);
+
+    // Check if center pixel is transparent
+    const centerIdx = (centerY * canvas.width + centerX) * 4;
+    const centerAlpha = data[centerIdx + 3];
+    
+    if (centerAlpha === 0) {
+        vscode.postMessage({
+            type: 'showError',
+            message: 'Center of sprite is transparent. Cannot auto-fit.'
+        });
+        return;
+    }
+
+    // Flood fill to find all connected non-transparent pixels
+    const visited = new Set();
+    const queue = [[centerX, centerY]];
+    let minX = centerX, maxX = centerX;
+    let minY = centerY, maxY = centerY;
+
+    while (queue.length > 0) {
+        const [x, y] = queue.shift();
+        const key = `${x},${y}`;
+
+        if (visited.has(key)) continue;
+        if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) continue;
+
+        const idx = (y * canvas.width + x) * 4;
+        const alpha = data[idx + 3];
+
+        // Skip transparent pixels
+        if (alpha === 0) continue;
+
+        visited.add(key);
+
+        // Update bounds
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+
+        // Add neighbors
+        queue.push([x + 1, y]);
+        queue.push([x - 1, y]);
+        queue.push([x, y + 1]);
+        queue.push([x, y - 1]);
+    }
+
+    // Update sprite bounds (add 1 to max because it's exclusive)
+    currentData.sprites[spriteName] = {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+    };
+
+    rebuildSpriteList();
+    redrawOverlay();
+    renderPreview();
+    updateDocument();
 }
 
 // Canvas zoom functions
@@ -392,6 +488,7 @@ function drawCanvasView() {
 
     // Create container
     canvasView.innerHTML = '';
+    canvasInteractionSetup = false; // Reset since we're creating new canvases
     const container = document.createElement('div');
     container.className = 'canvas-container';
     container.style.width = zoomedWidth + 'px';
@@ -509,6 +606,32 @@ function redrawOverlay() {
                 ctx.strokeRect(handle.cx - handleSize / 2, handle.cy - handleSize / 2, handleSize, handleSize);
             });
         }
+
+        // Draw reticle at center of sprite
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        const reticleSize = 8;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+
+        // Horizontal line
+        ctx.beginPath();
+        ctx.moveTo(centerX - reticleSize, centerY);
+        ctx.lineTo(centerX + reticleSize, centerY);
+        ctx.stroke();
+
+        // Vertical line
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - reticleSize);
+        ctx.lineTo(centerX, centerY + reticleSize);
+        ctx.stroke();
+
+        // Center dot
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+        ctx.fill();
     });
 
     // Draw current selection

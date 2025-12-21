@@ -209,6 +209,9 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                     }
                     break;
                 }
+                case 'showError':
+                    vscode.window.showErrorMessage(message.message);
+                    break;
             }
         });
 
@@ -277,6 +280,9 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                     <div class="sprite-list-header">
                         <span>Sprites</span>
                         <div class="sprite-list-buttons">
+                            <vscode-button appearance="icon" aria-label="Auto Fit Sprite" title="Auto Fit Sprite to Content" id="auto-fit-sprite-btn" disabled>
+                                <span class="codicon codicon-screen-full"></span>
+                            </vscode-button>
                             <vscode-button appearance="icon" aria-label="Delete Sprite" title="Delete Sprite" id="remove-sprite-btn" disabled>
                                 <span class="codicon codicon-trash"></span>
                             </vscode-button>
