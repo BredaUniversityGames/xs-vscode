@@ -673,6 +673,11 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                 let isDrawing = false; // Is user drawing a selection
                 let selectionStart = null; // Start point of selection { x, y }
                 let currentSelection = null; // Current selection rect { x, y, width, height }
+                const canvasZoomSelect = document.getElementById('canvas-zoom-select');
+                const canvasViewElement = document.getElementById('canvas-view');
+                const canvasZoomLevels = canvasZoomSelect ?
+                    Array.from(canvasZoomSelect.options).map(option => parseFloat(option.value)) :
+                    [0.25, 0.5, 1, 2, 4];
 
                 // Top bar event listeners
                 document.getElementById('browse-btn').addEventListener('click', () => {
@@ -686,12 +691,18 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                 });
 
                 // Canvas zoom event listener
-                document.getElementById('canvas-zoom-select').addEventListener('change', (e) => {
-                    canvasZoom = parseFloat(e.target.value) || 1;
-                    if (spriteImage && spriteImage.complete) {
-                        drawCanvasView();
-                    }
-                });
+                if (canvasZoomSelect) {
+                    canvasZoomSelect.addEventListener('change', (e) => {
+                        const value = parseFloat(e.target.value);
+                        if (!isNaN(value)) {
+                            setCanvasZoom(value);
+                        }
+                    });
+                }
+
+                if (canvasViewElement) {
+                    canvasViewElement.addEventListener('wheel', handleCanvasZoomWheel, { passive: false });
+                }
 
                 // Preview zoom event listener
                 document.getElementById('preview-zoom-select').addEventListener('change', (e) => {
@@ -906,6 +917,42 @@ export class SpriteEditorProvider implements vscode.CustomTextEditorProvider {
                         type: 'update',
                         data: currentData
                     });
+                }
+
+                function setCanvasZoom(value) {
+                    canvasZoom = value;
+                    if (canvasZoomSelect) {
+                        canvasZoomSelect.value = value.toString();
+                    }
+                    if (spriteImage && spriteImage.complete) {
+                        drawCanvasView();
+                    }
+                }
+
+                function adjustCanvasZoom(step) {
+                    if (canvasZoomLevels.length === 0) {
+                        return;
+                    }
+                    let closestIndex = 0;
+                    let smallestDiff = Infinity;
+                    canvasZoomLevels.forEach((level, index) => {
+                        const diff = Math.abs(level - canvasZoom);
+                        if (diff < smallestDiff) {
+                            smallestDiff = diff;
+                            closestIndex = index;
+                        }
+                    });
+                    const nextIndex = Math.max(0, Math.min(canvasZoomLevels.length - 1, closestIndex + step));
+                    setCanvasZoom(canvasZoomLevels[nextIndex]);
+                }
+
+                function handleCanvasZoomWheel(event) {
+                    if (!event.ctrlKey && !event.metaKey) {
+                        return;
+                    }
+                    event.preventDefault();
+                    const direction = event.deltaY < 0 ? 1 : -1;
+                    adjustCanvasZoom(direction);
                 }
 
                 // Canvas View Functions
