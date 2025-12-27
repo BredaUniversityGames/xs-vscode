@@ -3,6 +3,10 @@
 out/**
 node_modules/**
 src/**
+!src/**/animationEditorWebview.css
+!src/**/animationEditorWebview.js
+!src/**/spriteEditorWebview.css
+!src/**/spriteEditorWebview.js
 .gitignore
 .yarnrc
 esbuild.js
