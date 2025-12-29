@@ -29,6 +29,8 @@ function initialize(data, selectedAnim) {
     loadSpriteSheet();
     renderTimeline();
     renderPreview();
+    updateRemoveButtonState();
+    updateAddFramesButtonState();
 }
 
 // Event listeners setup
@@ -39,7 +41,12 @@ function setupEventListeners() {
 });
 
 document.getElementById('image-path').addEventListener('input', (e) => {
-    currentData.image = e.target.value;
+    let path = e.target.value;
+    // Ensure path starts with [game]/
+    if (path && !path.startsWith('[game]/')) {
+        path = '[game]/' + path;
+    }
+    currentData.image = path;
     loadSpriteSheet();
     updateDocument();
 });
@@ -64,6 +71,28 @@ document.getElementById('rows').addEventListener('input', (e) => {
 
 document.getElementById('fps').addEventListener('input', (e) => {
     currentData.fps = parseInt(e.target.value) || 1;
+    updateDocument();
+});
+
+document.getElementById('image-padding').addEventListener('input', (e) => {
+    currentData.imagePadding = parseInt(e.target.value) || 0;
+    if (spriteImage) {
+        redrawOverlay();
+        renderTimeline();
+        renderPreview();
+        updateCellSizeDisplay();
+    }
+    updateDocument();
+});
+
+document.getElementById('padding').addEventListener('input', (e) => {
+    currentData.padding = parseInt(e.target.value) || 0;
+    if (spriteImage) {
+        redrawOverlay();
+        renderTimeline();
+        renderPreview();
+        updateCellSizeDisplay();
+    }
     updateDocument();
 });
 
@@ -125,13 +154,35 @@ document.getElementById('animation-list').addEventListener('dblclick', (e) => {
 window.addEventListener('message', event => {
     const message = event.data;
     switch (message.type) {
+        case 'dataChanged':
+            // External change to the document (e.g., undo/redo, manual edit)
+            currentData = message.data;
+            document.getElementById('image-path').value = currentData.image || '';
+            document.getElementById('columns').value = currentData.columns;
+            document.getElementById('rows').value = currentData.rows;
+            document.getElementById('fps').value = currentData.fps;
+            document.getElementById('image-padding').value = currentData.imagePadding || 0;
+            document.getElementById('padding').value = currentData.padding || 0;
+            rebuildAnimationList();
+            loadSpriteSheet();
+            renderTimeline();
+            renderPreview();
+            break;
         case 'imageSelected':
-            document.getElementById('image-path').value = message.path;
-            currentData.image = message.path;
+            let path = message.path;
+            // Ensure path starts with [game]/
+            if (path && !path.startsWith('[game]/')) {
+                path = '[game]/' + path;
+            }
+            document.getElementById('image-path').value = path;
+            currentData.image = path;
             loadSpriteSheet();
             updateDocument();
             break;
         case 'animationNameEntered':
+            if (!currentData.animations) {
+                currentData.animations = {};
+            }
             currentData.animations[message.name] = [];
             selectedAnimation = message.name;
             selectedTimelineIndex = -1;
@@ -307,23 +358,25 @@ function updateRemoveButtonState() {
 // Rebuild animation list UI
 function rebuildAnimationList() {
     const listEl = document.getElementById('animation-list');
-    const animations = Object.entries(currentData.animations);
+    if (!listEl) {
+        console.error('Animation list element not found');
+        return;
+    }
+
+    const animations = Object.entries(currentData.animations || {});
 
     if (animations.length === 0) {
         listEl.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 12px;">No animations</div>';
         selectedAnimation = null;
     } else {
-        listEl.innerHTML = animations.map(([name, frames], index) => {
+        const html = animations.map(([name, frames], index) => {
             const hue = (index * 360) / Math.max(animations.length, 1);
             const color = `hsl(${hue}, 70%, 60%)`;
             const isSelected = name === selectedAnimation;
-            return `
-                <div class="animation-item ${isSelected ? 'selected' : ''}" data-name="${escapeHtml(name)}">
-                    <div class="animation-color-dot" style="background: ${color};"></div>
-                    <div class="animation-item-name">${escapeHtml(name)}</div>
-                </div>
-            `;
+            return `<div class="animation-item ${isSelected ? 'selected' : ''}" data-name="${escapeHtml(name)}"><div class="animation-color-dot" style="background: ${color};"></div><div class="animation-item-name">${escapeHtml(name)}</div></div>`;
         }).join('');
+
+        listEl.innerHTML = html;
 
         // If selected animation was deleted, select first one
         if (selectedAnimation && !currentData.animations[selectedAnimation]) {
@@ -389,21 +442,22 @@ function drawGridView() {
     // Draw checkerboard background on base canvas
     const baseCtx = baseCanvas.getContext('2d');
 
-    // Checkerboard pattern
-    const checkSize = 16;
+    // Checkerboard pattern (scaled)
+    const checkSize = 16 * gridZoom;
     const color1 = '#cccccc';
     const color2 = '#999999';
 
-    for (let y = 0; y < imgHeight; y += checkSize) {
-        for (let x = 0; x < imgWidth; x += checkSize) {
+    for (let y = 0; y < zoomedHeight; y += checkSize) {
+        for (let x = 0; x < zoomedWidth; x += checkSize) {
             const isEven = (Math.floor(x / checkSize) + Math.floor(y / checkSize)) % 2 === 0;
             baseCtx.fillStyle = isEven ? color1 : color2;
             baseCtx.fillRect(x, y, checkSize, checkSize);
         }
     }
 
-    // Draw sprite sheet on top
-    baseCtx.drawImage(spriteImage, 0, 0);
+    // Draw sprite sheet on top (scaled)
+    baseCtx.imageSmoothingEnabled = false; // Keep pixels crisp
+    baseCtx.drawImage(spriteImage, 0, 0, zoomedWidth, zoomedHeight);
 
     // Draw grid and decorations on overlay
     redrawOverlay();
@@ -425,9 +479,15 @@ function updateCellSizeDisplay() {
         return;
     }
 
-    const cellWidth = Math.floor(spriteImage.width / currentData.columns);
-    const cellHeight = Math.floor(spriteImage.height / currentData.rows);
-    display.textContent = `Cell: ${cellWidth}×${cellHeight}px`;
+    const imagePadding = currentData.imagePadding || 0;
+    const effectiveImageWidth = spriteImage.width - 2 * imagePadding;
+    const effectiveImageHeight = spriteImage.height - 2 * imagePadding;
+    const cellWidth = Math.floor(effectiveImageWidth / currentData.columns);
+    const cellHeight = Math.floor(effectiveImageHeight / currentData.rows);
+    const padding = currentData.padding || 0;
+    const effectiveWidth = Math.max(0, cellWidth - 2 * padding);
+    const effectiveHeight = Math.max(0, cellHeight - 2 * padding);
+    display.textContent = `Cell: ${effectiveWidth}×${effectiveHeight}px`;
 }
 
 function redrawOverlay() {
@@ -439,10 +499,62 @@ function redrawOverlay() {
     const ctx = overlayCanvas.getContext('2d');
     const cols = currentData.columns;
     const rows = currentData.rows;
-    const cellWidth = overlayCanvas.width / cols;
-    const cellHeight = overlayCanvas.height / rows;
+    const imagePadding = currentData.imagePadding || 0;
+    const imagePaddingScaled = imagePadding * gridZoom;
+    const effectiveWidth = overlayCanvas.width - 2 * imagePaddingScaled;
+    const effectiveHeight = overlayCanvas.height - 2 * imagePaddingScaled;
+    const cellWidth = effectiveWidth / cols;
+    const cellHeight = effectiveHeight / rows;
+    const padding = currentData.padding || 0;
+    const paddingScaled = padding * gridZoom;
 
     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    // Draw image padding area (edges of entire sprite sheet)
+    if (imagePadding > 0) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        // Top edge
+        ctx.fillRect(0, 0, overlayCanvas.width, imagePaddingScaled);
+        // Bottom edge
+        ctx.fillRect(0, overlayCanvas.height - imagePaddingScaled, overlayCanvas.width, imagePaddingScaled);
+        // Left edge
+        ctx.fillRect(0, 0, imagePaddingScaled, overlayCanvas.height);
+        // Right edge
+        ctx.fillRect(overlayCanvas.width - imagePaddingScaled, 0, imagePaddingScaled, overlayCanvas.height);
+    }
+
+    // Draw padding areas (dimmed regions per sprite)
+    if (padding > 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const x = imagePaddingScaled + col * cellWidth;
+                const y = imagePaddingScaled + row * cellHeight;
+
+                // Top padding
+                ctx.fillRect(x, y, cellWidth, paddingScaled);
+                // Bottom padding
+                ctx.fillRect(x, y + cellHeight - paddingScaled, cellWidth, paddingScaled);
+                // Left padding
+                ctx.fillRect(x, y, paddingScaled, cellHeight);
+                // Right padding
+                ctx.fillRect(x + cellWidth - paddingScaled, y, paddingScaled, cellHeight);
+            }
+        }
+
+        // Draw inner rectangles showing effective sprite area
+        ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)';
+        ctx.lineWidth = 1;
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const x = imagePaddingScaled + col * cellWidth + paddingScaled;
+                const y = imagePaddingScaled + row * cellHeight + paddingScaled;
+                const w = cellWidth - 2 * paddingScaled;
+                const h = cellHeight - 2 * paddingScaled;
+                ctx.strokeRect(x, y, w, h);
+            }
+        }
+    }
 
     // Draw simple grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
@@ -450,19 +562,19 @@ function redrawOverlay() {
 
     // Draw all vertical lines
     for (let x = 0; x <= cols; x++) {
-        const xPos = Math.floor(x * cellWidth) + 0.5;
+        const xPos = Math.floor(imagePaddingScaled + x * cellWidth) + 0.5;
         ctx.beginPath();
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, overlayCanvas.height);
+        ctx.moveTo(xPos, imagePaddingScaled);
+        ctx.lineTo(xPos, imagePaddingScaled + effectiveHeight);
         ctx.stroke();
     }
 
     // Draw all horizontal lines
     for (let y = 0; y <= rows; y++) {
-        const yPos = Math.floor(y * cellHeight) + 0.5;
+        const yPos = Math.floor(imagePaddingScaled + y * cellHeight) + 0.5;
         ctx.beginPath();
-        ctx.moveTo(0, yPos);
-        ctx.lineTo(overlayCanvas.width, yPos);
+        ctx.moveTo(imagePaddingScaled, yPos);
+        ctx.lineTo(imagePaddingScaled + effectiveWidth, yPos);
         ctx.stroke();
     }
 
@@ -471,8 +583,8 @@ function redrawOverlay() {
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             const frameIndex = row * cols + col;
-            const x = col * cellWidth;
-            const y = row * cellHeight;
+            const x = imagePaddingScaled + col * cellWidth;
+            const y = imagePaddingScaled + row * cellHeight;
 
             // Find which animations contain this frame
             const animsWithFrame = [];
@@ -512,11 +624,15 @@ function getFrameAtPosition(canvas, clientX, clientY) {
 
     const cols = currentData.columns;
     const rows = currentData.rows;
-    const cellWidth = canvas.width / cols;
-    const cellHeight = canvas.height / rows;
+    const imagePadding = currentData.imagePadding || 0;
+    const imagePaddingScaled = imagePadding * gridZoom;
+    const effectiveWidth = canvas.width - 2 * imagePaddingScaled;
+    const effectiveHeight = canvas.height - 2 * imagePaddingScaled;
+    const cellWidth = effectiveWidth / cols;
+    const cellHeight = effectiveHeight / rows;
 
-    const col = Math.floor(x / cellWidth);
-    const row = Math.floor(y / cellHeight);
+    const col = Math.floor((x - imagePaddingScaled) / cellWidth);
+    const row = Math.floor((y - imagePaddingScaled) / cellHeight);
 
     if (col >= 0 && col < cols && row >= 0 && row < rows) {
         return row * cols + col;
@@ -622,12 +738,18 @@ function renderTimeline() {
 
     const cols = currentData.columns;
     const rows = currentData.rows;
-    const cellWidth = spriteImage.width / cols;
-    const cellHeight = spriteImage.height / rows;
+    const imagePadding = currentData.imagePadding || 0;
+    const effectiveImageWidth = spriteImage.width - 2 * imagePadding;
+    const effectiveImageHeight = spriteImage.height - 2 * imagePadding;
+    const cellWidth = effectiveImageWidth / cols;
+    const cellHeight = effectiveImageHeight / rows;
+    const padding = currentData.padding || 0;
+    const effectiveCellWidth = cellWidth - 2 * padding;
+    const effectiveCellHeight = cellHeight - 2 * padding;
     const thumbHeight = 80; // Max thumbnail height
-    const scale = Math.min(1, thumbHeight / cellHeight);
-    const thumbWidth = cellWidth * scale;
-    const scaledThumbHeight = cellHeight * scale;
+    const scale = Math.min(1, thumbHeight / effectiveCellHeight);
+    const thumbWidth = effectiveCellWidth * scale;
+    const scaledThumbHeight = effectiveCellHeight * scale;
 
     frames.forEach((frameIndex, timelineIndex) => {
         const frameDiv = document.createElement('div');
@@ -659,13 +781,13 @@ function renderTimeline() {
         // Calculate source position
         const row = Math.floor(frameIndex / cols);
         const col = frameIndex % cols;
-        const sx = col * cellWidth;
-        const sy = row * cellHeight;
+        const sx = imagePadding + col * cellWidth + padding;
+        const sy = imagePadding + row * cellHeight + padding;
 
         // Draw frame
         ctx.drawImage(
             spriteImage,
-            sx, sy, cellWidth, cellHeight,
+            sx, sy, effectiveCellWidth, effectiveCellHeight,
             0, 0, thumbWidth, scaledThumbHeight
         );
 
@@ -735,14 +857,20 @@ function renderPreview() {
     // Calculate frame dimensions
     const cols = currentData.columns;
     const rows = currentData.rows;
-    const cellWidth = spriteImage.width / cols;
-    const cellHeight = spriteImage.height / rows;
+    const imagePadding = currentData.imagePadding || 0;
+    const effectiveImageWidth = spriteImage.width - 2 * imagePadding;
+    const effectiveImageHeight = spriteImage.height - 2 * imagePadding;
+    const cellWidth = effectiveImageWidth / cols;
+    const cellHeight = effectiveImageHeight / rows;
+    const padding = currentData.padding || 0;
+    const effectiveCellWidth = cellWidth - 2 * padding;
+    const effectiveCellHeight = cellHeight - 2 * padding;
 
     // Integer scaling for crisp pixels
     const maxPreviewSize = 200;
-    const scale = Math.max(1, Math.floor(maxPreviewSize / Math.max(cellWidth, cellHeight)));
-    const previewWidth = cellWidth * scale;
-    const previewHeight = cellHeight * scale;
+    const scale = Math.max(1, Math.floor(maxPreviewSize / Math.max(effectiveCellWidth, effectiveCellHeight)));
+    const previewWidth = effectiveCellWidth * scale;
+    const previewHeight = effectiveCellHeight * scale;
 
     // Build preview HTML
     previewControlsSetup = false; // Reset since we're rebuilding the preview
@@ -796,8 +924,14 @@ function drawPreviewFrame() {
     const ctx = canvas.getContext('2d');
     const cols = currentData.columns;
     const rows = currentData.rows;
-    const cellWidth = spriteImage.width / cols;
-    const cellHeight = spriteImage.height / rows;
+    const imagePadding = currentData.imagePadding || 0;
+    const effectiveImageWidth = spriteImage.width - 2 * imagePadding;
+    const effectiveImageHeight = spriteImage.height - 2 * imagePadding;
+    const cellWidth = effectiveImageWidth / cols;
+    const cellHeight = effectiveImageHeight / rows;
+    const padding = currentData.padding || 0;
+    const effectiveCellWidth = cellWidth - 2 * padding;
+    const effectiveCellHeight = cellHeight - 2 * padding;
 
     // Draw checkerboard
     const checkSize = 16;
@@ -815,14 +949,14 @@ function drawPreviewFrame() {
     const frameIndex = frames[currentPreviewFrame];
     const row = Math.floor(frameIndex / cols);
     const col = frameIndex % cols;
-    const sx = col * cellWidth;
-    const sy = row * cellHeight;
+    const sx = imagePadding + col * cellWidth + padding;
+    const sy = imagePadding + row * cellHeight + padding;
 
     // Draw frame scaled to canvas size (integer scaling for crisp pixels)
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
         spriteImage,
-        sx, sy, cellWidth, cellHeight,
+        sx, sy, effectiveCellWidth, effectiveCellHeight,
         0, 0, canvas.width, canvas.height
     );
 
@@ -837,6 +971,7 @@ function setupPreviewControls() {
     document.getElementById('preview-play-pause')?.addEventListener('click', () => {
         if (isPlaying) {
             stopAnimation();
+            renderPreview();
         } else {
             startAnimation();
         }
@@ -876,7 +1011,6 @@ function stopAnimation() {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
-    renderPreview();
 }
 
 function stepFrame(direction) {
@@ -914,6 +1048,7 @@ function animationLoop() {
             } else {
                 currentPreviewFrame = frames.length - 1;
                 stopAnimation();
+                renderPreview();
                 return;
             }
         }

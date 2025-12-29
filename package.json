@@ -52,6 +52,10 @@
       {
         "command": "xs-vscode.showEngineInfo",
         "title": "xs: show engine info"
+      },
+      {
+        "command": "xs-vscode.packImages",
+        "title": "xs: pack images into atlas"
       }
     ],
     "languages": [
@@ -93,6 +97,19 @@
           "light": "./media/icons/xssprite-file.svg",
           "dark": "./media/icons/xssprite-file.svg"
         }
+      },
+      {
+        "id": "xs-atlas",
+        "extensions": [
+          ".xsatlas"
+        ],
+        "aliases": [
+          "xs atlas"
+        ],
+        "icon": {
+          "light": "./media/icons/xsatlas-file.svg",
+          "dark": "./media/icons/xsatlas-file.svg"
+        }
       }
     ],
     "customEditors": [
@@ -122,6 +139,16 @@
         "selector": [
           {
             "filenamePattern": "*.xssprite"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "xs.atlasEditor",
+        "displayName": "XS Atlas Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.xsatlas"
           }
         ],
         "priority": "default"

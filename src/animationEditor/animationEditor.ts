@@ -6,6 +6,8 @@ interface AnimationData {
     columns: number;
     rows: number;
     fps: number;
+    imagePadding?: number;
+    padding?: number;
     animations: { [name: string]: number[] };
 }
 
@@ -101,8 +103,9 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
             switch (message.type) {
                 case 'update':
                     isUpdating = true;
+                    animationData = message.data;
                     this.updateTextDocument(document, message.data);
-                    setTimeout(() => { isUpdating = false; }, 100);
+                    setTimeout(() => { isUpdating = false; }, 500);
                     break;
                 case 'browse': {
                     // Find all image files in the workspace
@@ -159,7 +162,6 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         }
                     });
                     if (name) {
-                        animationData.animations[name] = [];
                         webviewPanel.webview.postMessage({
                             type: 'animationNameEntered',
                             name: name
@@ -173,7 +175,6 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         'Delete'
                     );
                     if (result === 'Delete') {
-                        delete animationData.animations[message.name];
                         webviewPanel.webview.postMessage({
                             type: 'deleteConfirmed',
                             name: message.name
@@ -195,8 +196,6 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                         }
                     });
                     if (newName && newName !== message.currentName) {
-                        animationData.animations[newName] = animationData.animations[message.currentName];
-                        delete animationData.animations[message.currentName];
                         webviewPanel.webview.postMessage({
                             type: 'renameConfirmed',
                             oldName: message.currentName,
@@ -229,7 +228,11 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                     const text = e.document.getText();
                     if (text.trim().length > 0) {
                         animationData = JSON.parse(text);
-                        updateWebview();
+                        // Send update message to webview instead of regenerating HTML
+                        webviewPanel.webview.postMessage({
+                            type: 'dataChanged',
+                            data: animationData
+                        });
                     }
                 } catch (e) {
                     // Ignore parse errors during editing
@@ -285,6 +288,14 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                 <div class="top-bar-group">
                     <label>FPS</label>
                     <input type="number" class="small" id="fps" value="${data.fps}" min="1" />
+                </div>
+                <div class="top-bar-group">
+                    <label>Image Pad</label>
+                    <input type="number" class="small" id="image-padding" value="${data.imagePadding || 0}" min="0" title="Trim edges of entire sprite sheet" />
+                </div>
+                <div class="top-bar-group">
+                    <label>Sprite Pad</label>
+                    <input type="number" class="small" id="padding" value="${data.padding || 0}" min="0" title="Trim edges of each sprite" />
                 </div>
                 <div class="top-bar-group" style="margin-left: auto; color: var(--vscode-descriptionForeground);">
                     <span id="cell-size-display">Cell: -</span>

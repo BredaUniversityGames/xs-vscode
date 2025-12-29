@@ -7,6 +7,8 @@ src/**
 !src/**/animationEditorWebview.js
 !src/**/spriteEditorWebview.css
 !src/**/spriteEditorWebview.js
+!src/**/imagePackerWebview.css
+!src/**/imagePackerWebview.js
 .gitignore
 .yarnrc
 esbuild.js
