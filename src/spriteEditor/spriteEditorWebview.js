@@ -54,7 +54,12 @@ function setupEventListeners() {
     if (imagePathInput) {
         imagePathInput.addEventListener('input', (e) => {
             const target = e.target;
-            currentData.image = target.value;
+            let path = target.value;
+            // Ensure path starts with [game]/
+            if (path && !path.startsWith('[game]/')) {
+                path = '[game]/' + path;
+            }
+            currentData.image = path;
             loadSpriteSheet();
             updateDocument();
         });
@@ -191,11 +196,16 @@ function handleExtensionMessage(event) {
     const message = event.data;
     switch (message.type) {
         case 'imageSelected':
+            let path = message.path;
+            // Ensure path starts with [game]/
+            if (path && !path.startsWith('[game]/')) {
+                path = '[game]/' + path;
+            }
             const imagePathInput = document.getElementById('image-path');
             if (imagePathInput) {
-                imagePathInput.value = message.path;
+                imagePathInput.value = path;
             }
-            currentData.image = message.path;
+            currentData.image = path;
             loadSpriteSheet();
             updateDocument();
             break;
