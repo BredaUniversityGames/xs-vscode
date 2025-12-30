@@ -3,7 +3,6 @@ import * as path from 'path';
 import { PackageEditorProvider } from './packageEditor';
 import { AnimationEditorProvider } from './animationEditor/animationEditor';
 import { SpriteEditorProvider } from './spriteEditor/spriteEditor';
-import { AtlasEditorProvider, registerImagePackerCommand } from './imagePacker/imagePacker';
 
 // Platform detection utilities
 function isWindows(): boolean {
@@ -168,9 +167,6 @@ function registerEditors(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         SpriteEditorProvider.register(context)
     );
-    context.subscriptions.push(
-        AtlasEditorProvider.register(context)
-    );
 }
 
 function registerLaunchProvider(context: vscode.ExtensionContext) {
@@ -257,9 +253,6 @@ async function updateEngineVersion(statusBarItem: vscode.StatusBarItem) {
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
-    // Register image packer command
-    registerImagePackerCommand(context);
-
     // Show Engine Info command
     let showEngineInfo = vscode.commands.registerCommand('xs-vscode.showEngineInfo', async () => {
         const config = vscode.workspace.getConfiguration('xs');
