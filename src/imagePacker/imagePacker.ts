@@ -5,6 +5,7 @@ import * as fs from 'fs';
 interface AtlasData {
     outputImage: string;
     padding: number;
+    useMaxRects?: boolean;
     sources: {
         path: string;
         name: string;
@@ -57,6 +58,7 @@ export class AtlasEditorProvider implements vscode.CustomTextEditorProvider {
                 atlasData = {
                     outputImage: 'atlas.png',
                     padding: 2,
+                    useMaxRects: true,
                     sources: []
                 };
             } else {
@@ -67,6 +69,7 @@ export class AtlasEditorProvider implements vscode.CustomTextEditorProvider {
             atlasData = {
                 outputImage: 'atlas.png',
                 padding: 2,
+                useMaxRects: true,
                 sources: []
             };
         }
@@ -244,8 +247,12 @@ export class AtlasEditorProvider implements vscode.CustomTextEditorProvider {
                 </div>
                 <div class="input-group">
                     <label for="padding-input">Padding:</label>
-                    <input type="number" id="padding-input" value="${data.padding || 2}" min="0" max="100" style="width: 60px;">
+                    <input type="number" id="padding-input" value="${data.padding !== undefined ? data.padding : 2}" min="0" max="100" style="width: 60px;">
                     <span>px</span>
+                </div>
+                <div class="input-group">
+                    <input type="checkbox" id="use-maxrects-checkbox" ${data.useMaxRects !== false ? 'checked' : ''}>
+                    <label for="use-maxrects-checkbox">Use MaxRects algorithm</label>
                 </div>
                 <vscode-button id="pack-preview-btn" appearance="primary">Pack & Preview</vscode-button>
             </div>
@@ -330,6 +337,7 @@ export function registerImagePackerCommand(context: vscode.ExtensionContext) {
         const defaultData: AtlasData = {
             outputImage: filename.replace('.xsatlas', '.png'),
             padding: 2,
+            useMaxRects: true,
             sources: []
         };
 

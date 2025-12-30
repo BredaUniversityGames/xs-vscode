@@ -8,6 +8,7 @@ let sources = []; // Array of SourceImage objects
 let selectedIndex = -1;
 let outputPath = 'atlas.png';
 let padding = 2;
+let useMaxRects = true;
 let canvasZoom = 1;
 let packedAtlas = null; // { width, height, canvas }
 let loadedImages = new Map(); // path -> HTMLImageElement
@@ -22,11 +23,13 @@ function initialize() {
             if (data) {
                 outputPath = data.outputImage || 'atlas.png';
                 padding = data.padding !== undefined ? data.padding : 2;
+                useMaxRects = data.useMaxRects !== false;
                 sources = data.sources || [];
 
                 // Set UI values
                 document.getElementById('output-path').value = outputPath;
                 document.getElementById('padding-input').value = padding;
+                document.getElementById('use-maxrects-checkbox').checked = useMaxRects;
             }
         } catch (e) {
             console.error('Failed to parse atlas data:', e);
@@ -51,6 +54,11 @@ function setupEventListeners() {
 
     document.getElementById('padding-input').addEventListener('input', (e) => {
         padding = parseInt(e.target.value) || 0;
+        saveDocument();
+    });
+
+    document.getElementById('use-maxrects-checkbox').addEventListener('change', (e) => {
+        useMaxRects = e.target.checked;
         saveDocument();
     });
 
@@ -108,9 +116,11 @@ function handleExtensionMessage(event) {
             if (message.data) {
                 outputPath = message.data.outputImage || 'atlas.png';
                 padding = message.data.padding || 2;
+                useMaxRects = message.data.useMaxRects !== false;
                 sources = message.data.sources || [];
                 document.getElementById('output-path').value = outputPath;
                 document.getElementById('padding-input').value = padding;
+                document.getElementById('use-maxrects-checkbox').checked = useMaxRects;
                 updateUI();
                 loadAllImages();
             }
@@ -184,6 +194,7 @@ function saveDocument() {
         data: {
             outputImage: outputPath,
             padding: padding,
+            useMaxRects: useMaxRects,
             sources: sources.map(s => ({
                 path: s.path,
                 name: s.name,
@@ -330,8 +341,12 @@ async function packAndPreview() {
     // Update trimmed dimensions
     sources.forEach(updateTrimmedDimensions);
 
-    // Pack using shelf-packing algorithm
-    packedAtlas = packImages(sources, padding);
+    // Pack using selected algorithm
+    if (useMaxRects) {
+        packedAtlas = packImagesMaxRects(sources, padding);
+    } else {
+        packedAtlas = packImagesShelf(sources, padding);
+    }
 
     // Render preview
     renderPreview();
@@ -340,53 +355,59 @@ async function packAndPreview() {
     updateExportButton();
 }
 
-function packImages(sources, padding) {
-    // Sort by trimmed height (tallest first)
-    const sortedSources = [...sources].sort((a, b) =>
-        (b.trimmedHeight || 0) - (a.trimmedHeight || 0)
-    );
+function packImagesShelf(sources, padding) {
+    // Simple shelf-packing algorithm (prefers taller atlases)
 
-    let currentX = padding;
-    let currentY = padding;
-    let currentShelfHeight = 0;
-    let maxX = 0;
-    let maxY = 0;
+    // Sort by width (widest first)
+    const sortedSources = [...sources].sort((a, b) => {
+        return (b.trimmedWidth || 0) - (a.trimmedWidth || 0);
+    });
 
+    // Start at top-left
+    let x = padding;
+    let y = padding;
+    let rowHeight = 0;
+    let maxWidth = 0;
+
+    // Pack images into rows
     for (const source of sortedSources) {
-        const w = source.trimmedWidth || 0;
-        const h = source.trimmedHeight || 0;
+        const w = (source.trimmedWidth || 0);
+        const h = (source.trimmedHeight || 0);
 
-        // Try to fit on current shelf
-        if (currentX + w + padding > maxX && currentX > padding) {
-            // Move to next shelf
-            currentY += currentShelfHeight + padding;
-            currentX = padding;
-            currentShelfHeight = 0;
+        // Check if adding this image would make the atlas wider than current max
+        const tentativeWidth = x + w + padding;
+
+        // If we're not on the first image of a row AND it would make atlas wider, move to next row
+        if (x > padding && tentativeWidth > maxWidth) {
+            // Move to next row
+            y += rowHeight + padding;
+            x = padding;
+            rowHeight = 0;
         }
 
-        // Place image
-        source.x = currentX;
-        source.y = currentY;
+        // Place the image
+        source.x = x;
+        source.y = y;
 
-        // Update shelf and bounds
-        currentX += w + padding;
-        currentShelfHeight = Math.max(currentShelfHeight, h);
-        maxX = Math.max(maxX, currentX);
-        maxY = Math.max(maxY, currentY + h + padding);
+        // Update position and tracking
+        x += w + padding;
+        rowHeight = Math.max(rowHeight, h);
+        maxWidth = Math.max(maxWidth, x);
     }
 
-    const atlasWidth = maxX;
-    const atlasHeight = maxY;
+    // Calculate final dimensions
+    const binWidth = maxWidth;
+    const binHeight = y + rowHeight + padding;
 
     // Create canvas and render
     const canvas = document.createElement('canvas');
-    canvas.width = atlasWidth;
-    canvas.height = atlasHeight;
+    canvas.width = binWidth;
+    canvas.height = binHeight;
 
     const ctx = canvas.getContext('2d');
 
     // Draw checkerboard background
-    drawCheckerboard(ctx, atlasWidth, atlasHeight, 16);
+    drawCheckerboard(ctx, binWidth, binHeight, 16);
 
     // Draw each image
     for (const source of sources) {
@@ -404,7 +425,194 @@ function packImages(sources, padding) {
         ctx.drawImage(img, srcX, srcY, srcW, srcH, dstX, dstY, srcW, srcH);
     }
 
-    return { width: atlasWidth, height: atlasHeight, canvas };
+    return { width: binWidth, height: binHeight, canvas };
+}
+
+function packImagesMaxRects(sources, padding) {
+    // MaxRects bin packing algorithm with BSSF heuristic
+
+    // Sort by area (largest first) for better initial placement
+    const sortedSources = [...sources].sort((a, b) => {
+        const areaA = (a.trimmedWidth || 0) * (a.trimmedHeight || 0);
+        const areaB = (b.trimmedWidth || 0) * (b.trimmedHeight || 0);
+        return areaB - areaA;
+    });
+
+    // Start with a reasonable initial bin size
+    let binWidth = 512;
+    let binHeight = 512;
+
+    // Try packing with increasing bin sizes until everything fits
+    let packed = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!packed && attempts < maxAttempts) {
+        const result = tryPackMaxRects(sortedSources, binWidth, binHeight, padding);
+        if (result.success) {
+            packed = true;
+            binWidth = result.width;
+            binHeight = result.height;
+        } else {
+            // Increase bin size
+            if (binWidth <= binHeight) {
+                binWidth *= 2;
+            } else {
+                binHeight *= 2;
+            }
+            attempts++;
+        }
+    }
+
+    if (!packed) {
+        // Fallback: use very large bin
+        binWidth = 4096;
+        binHeight = 4096;
+        tryPackMaxRects(sortedSources, binWidth, binHeight, padding);
+    }
+
+    // Create canvas and render
+    const canvas = document.createElement('canvas');
+    canvas.width = binWidth;
+    canvas.height = binHeight;
+
+    const ctx = canvas.getContext('2d');
+
+    // Draw checkerboard background
+    drawCheckerboard(ctx, binWidth, binHeight, 16);
+
+    // Draw each image
+    for (const source of sources) {
+        if (source.x === undefined || source.y === undefined) continue;
+        const img = loadedImages.get(source.path);
+        if (!img) continue;
+
+        const srcX = source.trim.left;
+        const srcY = source.trim.top;
+        const srcW = source.trimmedWidth || 0;
+        const srcH = source.trimmedHeight || 0;
+        const dstX = source.x;
+        const dstY = source.y;
+
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, dstX, dstY, srcW, srcH);
+    }
+
+    return { width: binWidth, height: binHeight, canvas };
+}
+
+function tryPackMaxRects(sources, binWidth, binHeight, padding) {
+    // Initialize with one large free rectangle
+    const freeRects = [{ x: 0, y: 0, width: binWidth, height: binHeight }];
+    let success = true;
+
+    for (const source of sources) {
+        const w = (source.trimmedWidth || 0) + padding;
+        const h = (source.trimmedHeight || 0) + padding;
+
+        // Find best rectangle using BSSF (Best Short Side Fit)
+        let bestRect = null;
+        let bestShortSideFit = Infinity;
+        let bestLongSideFit = Infinity;
+
+        for (const rect of freeRects) {
+            if (rect.width >= w && rect.height >= h) {
+                const leftoverX = rect.width - w;
+                const leftoverY = rect.height - h;
+                const shortSideFit = Math.min(leftoverX, leftoverY);
+                const longSideFit = Math.max(leftoverX, leftoverY);
+
+                if (shortSideFit < bestShortSideFit ||
+                    (shortSideFit === bestShortSideFit && longSideFit < bestLongSideFit)) {
+                    bestRect = rect;
+                    bestShortSideFit = shortSideFit;
+                    bestLongSideFit = longSideFit;
+                }
+            }
+        }
+
+        if (!bestRect) {
+            success = false;
+            break;
+        }
+
+        // Place the rectangle
+        source.x = bestRect.x;
+        source.y = bestRect.y;
+
+        // Split the used rectangle and update free rectangles
+        splitFreeRect(freeRects, bestRect, w, h);
+    }
+
+    // Calculate actual used dimensions
+    let maxX = 0;
+    let maxY = 0;
+    for (const source of sources) {
+        if (source.x !== undefined && source.y !== undefined) {
+            maxX = Math.max(maxX, source.x + (source.trimmedWidth || 0) + padding);
+            maxY = Math.max(maxY, source.y + (source.trimmedHeight || 0) + padding);
+        }
+    }
+
+    return {
+        success,
+        width: Math.min(maxX, binWidth),
+        height: Math.min(maxY, binHeight)
+    };
+}
+
+function splitFreeRect(freeRects, usedRect, width, height) {
+    // Remove the used rectangle and create new free rectangles from the splits
+    const index = freeRects.indexOf(usedRect);
+    if (index === -1) return;
+
+    freeRects.splice(index, 1);
+
+    // Create new free rectangles from the remaining space
+    const newRects = [];
+
+    // Right side
+    if (usedRect.width > width) {
+        newRects.push({
+            x: usedRect.x + width,
+            y: usedRect.y,
+            width: usedRect.width - width,
+            height: usedRect.height
+        });
+    }
+
+    // Bottom side
+    if (usedRect.height > height) {
+        newRects.push({
+            x: usedRect.x,
+            y: usedRect.y + height,
+            width: usedRect.width,
+            height: usedRect.height - height
+        });
+    }
+
+    // Add new rectangles and prune overlaps
+    for (const newRect of newRects) {
+        let overlaps = false;
+        for (let i = freeRects.length - 1; i >= 0; i--) {
+            if (isRectInside(newRect, freeRects[i])) {
+                overlaps = true;
+                break;
+            }
+            if (isRectInside(freeRects[i], newRect)) {
+                freeRects.splice(i, 1);
+            }
+        }
+        if (!overlaps) {
+            freeRects.push(newRect);
+        }
+    }
+}
+
+function isRectInside(inner, outer) {
+    return inner.x >= outer.x &&
+           inner.y >= outer.y &&
+           inner.x + inner.width <= outer.x + outer.width &&
+           inner.y + inner.height <= outer.y + outer.height;
 }
 
 function renderPreview() {
