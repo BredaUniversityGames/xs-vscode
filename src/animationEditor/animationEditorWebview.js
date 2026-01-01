@@ -444,8 +444,8 @@ function drawGridView() {
 
     // Checkerboard pattern (scaled)
     const checkSize = 16 * gridZoom;
-    const color1 = '#cccccc';
-    const color2 = '#999999';
+    const color1 = '#666666';
+    const color2 = '#4d4d4d';
 
     for (let y = 0; y < zoomedHeight; y += checkSize) {
         for (let x = 0; x < zoomedWidth; x += checkSize) {
@@ -488,6 +488,29 @@ function updateCellSizeDisplay() {
     const effectiveWidth = Math.max(0, cellWidth - 2 * padding);
     const effectiveHeight = Math.max(0, cellHeight - 2 * padding);
     display.textContent = `Cell: ${effectiveWidth}×${effectiveHeight}px`;
+}
+
+function updateSelectionDisplay() {
+    const display = document.getElementById('selection-display');
+    if (!display) return;
+    
+    if (selectedFrames.size === 0) {
+        display.textContent = 'Selection: -';
+        return;
+    }
+
+    // Get last selected frame (highest index in the set)
+    const frames = Array.from(selectedFrames).sort((a, b) => b - a);
+    const lastFrame = frames[0];
+    const cols = currentData.columns;
+    const row = Math.floor(lastFrame / cols);
+    const col = lastFrame % cols;
+    
+    if (selectedFrames.size === 1) {
+        display.textContent = `Selection: #${lastFrame} (r${row}, c${col})`;
+    } else {
+        display.textContent = `Selection: ${selectedFrames.size} frames, last #${lastFrame} (r${row}, c${col})`;
+    }
 }
 
 function redrawOverlay() {
@@ -557,7 +580,7 @@ function redrawOverlay() {
     }
 
     // Draw simple grid lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.strokeStyle = '#80ff8091';
     ctx.lineWidth = 1;
 
     // Draw all vertical lines
@@ -658,6 +681,7 @@ function setupGridInteraction(canvas) {
             }
             redrawOverlay();
             updateAddFramesButtonState();
+            updateSelectionDisplay();
         }
     });
 
@@ -686,6 +710,7 @@ function setupGridInteraction(canvas) {
             }
             redrawOverlay();
             updateAddFramesButtonState();
+            updateSelectionDisplay();
         }
     });
 

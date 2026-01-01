@@ -193,6 +193,11 @@ body {
     position: relative;
 }
 
+.grid-view-footer {
+    flex-shrink: 0;
+    height: auto;
+}
+
 .grid-placeholder {
     display: flex;
     align-items: center;

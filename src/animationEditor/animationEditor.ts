@@ -358,6 +358,9 @@ export class AnimationEditorProvider implements vscode.CustomTextEditorProvider 
                             Select a sprite sheet to begin
                         </div>
                     </div>
+                    <div class="grid-view-footer" style="padding: 4px 8px; background: var(--vscode-editor-background); border-top: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 12px;">
+                        <span id="selection-display">Selection: -</span>
+                    </div>
                 </div>
             </div>
 

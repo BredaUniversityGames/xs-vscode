@@ -524,8 +524,8 @@ function drawCanvasView() {
 
     // Checkerboard pattern
     const checkSize = 16;
-    const color1 = '#cccccc';
-    const color2 = '#999999';
+    const color1 = '#666666';
+    const color2 = '#4d4d4d';
 
     for (let y = 0; y < zoomedHeight; y += checkSize) {
         for (let x = 0; x < zoomedWidth; x += checkSize) {
