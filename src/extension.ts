@@ -118,6 +118,9 @@ async function buildPackageAndRunCommand(enginePath: string, projectFolder: stri
     return `"${execPath}" package "${projectFolder}" "${outputPath}" && "${execPath}" run "${outputPath}"`;
 }
 
+// Keep terminal references alive to prevent disposal
+const activeTerminals = new Map<string, vscode.Terminal>();
+
 export async function activate(context: vscode.ExtensionContext) {
     console.log('xs-vscode activating ...');
 
@@ -131,6 +134,18 @@ export async function activate(context: vscode.ExtensionContext) {
     registerLaunchProvider(context);
     createStatusBarItems(context);
     registerCommands(context);
+
+    // Clean up terminals when they are closed by the user
+    context.subscriptions.push(
+        vscode.window.onDidCloseTerminal(terminal => {
+            for (const [key, term] of activeTerminals.entries()) {
+                if (term === terminal) {
+                    activeTerminals.delete(key);
+                    break;
+                }
+            }
+        })
+    );
 }
 
 async function validateXsProject(): Promise<boolean> {
@@ -370,11 +385,15 @@ function registerCommands(context: vscode.ExtensionContext) {
     console.log('Project folder:', projectFolder);
     console.log('Running command:', `"${enginePath}" run "${projectFolder}"`);
 
-    // Create and show terminal
-    const terminal = vscode.window.createTerminal({
-        name: 'XS Engine',
-        cwd: workingDir
-    });
+    // Get or create terminal and keep reference alive
+    let terminal = activeTerminals.get('xs-engine');
+    if (!terminal || terminal.exitStatus !== undefined) {
+        terminal = vscode.window.createTerminal({
+            name: 'XS Engine',
+            cwd: workingDir
+        });
+        activeTerminals.set('xs-engine', terminal);
+    }
 
     terminal.show();
    	terminal.sendText(await buildRunCommand(enginePath, projectFolder));
@@ -448,11 +467,15 @@ function registerCommands(context: vscode.ExtensionContext) {
         console.log('Output path:', outputPath);
         console.log('Running command:', `"${enginePath}" package "${projectFolder}" "${outputPath}"`);
 
-        // Create and show terminal
-        const terminal = vscode.window.createTerminal({
-            name: 'XS Package',
-            cwd: workingDir
-        });
+        // Get or create terminal and keep reference alive
+        let terminal = activeTerminals.get('xs-package');
+        if (!terminal || terminal.exitStatus !== undefined) {
+            terminal = vscode.window.createTerminal({
+                name: 'XS Package',
+                cwd: workingDir
+            });
+            activeTerminals.set('xs-package', terminal);
+        }
 
         terminal.show();
         terminal.sendText(await buildPackageCommand(enginePath, projectFolder, outputPath));
@@ -526,11 +549,15 @@ function registerCommands(context: vscode.ExtensionContext) {
         console.log('Output path:', outputPath);
         console.log('Running commands: package then run');
 
-        // Create and show terminal
-        const terminal = vscode.window.createTerminal({
-            name: 'XS Package & Run',
-            cwd: workingDir
-        });
+        // Get or create terminal and keep reference alive
+        let terminal = activeTerminals.get('xs-package-run');
+        if (!terminal || terminal.exitStatus !== undefined) {
+            terminal = vscode.window.createTerminal({
+                name: 'XS Package & Run',
+                cwd: workingDir
+            });
+            activeTerminals.set('xs-package-run', terminal);
+        }
 
         terminal.show();
         // Chain both commands: package first, then run if successful
@@ -650,19 +677,27 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
             const packageDirUri = vscode.Uri.file(packageDir);
             vscode.workspace.fs.createDirectory(packageDirUri);
 
-            const terminal = vscode.window.createTerminal({
-                name: 'XS Package & Run',
-                cwd: workingDir
-            });
+            let terminal = activeTerminals.get('xs-debug-package-run');
+            if (!terminal || terminal.exitStatus !== undefined) {
+                terminal = vscode.window.createTerminal({
+                    name: 'XS Package & Run',
+                    cwd: workingDir
+                });
+                activeTerminals.set('xs-debug-package-run', terminal);
+            }
 
             terminal.show();
             terminal.sendText(await buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
         } else {
             // Just Run
-            const terminal = vscode.window.createTerminal({
-                name: 'XS Engine',
-                cwd: workingDir
-            });
+            let terminal = activeTerminals.get('xs-debug');
+            if (!terminal || terminal.exitStatus !== undefined) {
+                terminal = vscode.window.createTerminal({
+                    name: 'XS Engine',
+                    cwd: workingDir
+                });
+                activeTerminals.set('xs-debug', terminal);
+            }
 
             terminal.show();
             terminal.sendText(await buildRunCommand(enginePath, projectFolder));
