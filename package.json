@@ -93,6 +93,19 @@
           "light": "./media/icons/xssprite-file.svg",
           "dark": "./media/icons/xssprite-file.svg"
         }
+      },
+      {
+        "id": "xs-tiles",
+        "extensions": [
+          ".xstiles"
+        ],
+        "aliases": [
+          "xs tiles"
+        ],
+        "icon": {
+          "light": "./media/icons/xssprite-file.svg",
+          "dark": "./media/icons/xssprite-file.svg"
+        }
       }
     ],
     "customEditors": [
@@ -122,6 +135,16 @@
         "selector": [
           {
             "filenamePattern": "*.xssprite"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "xs.tilesEditor",
+        "displayName": "XS Tiles Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.xstiles"
           }
         ],
         "priority": "default"
