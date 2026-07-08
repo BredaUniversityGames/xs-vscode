@@ -2,13 +2,18 @@
 
 All notable changes to the "xs-vscode" extension will be documented in this file.
 
-## [0.3.2] - 2026-07-07
+## [0.3.3] - 2026-07-08
 
 ### Fixed
 - `xs.workingDirectory` is now applied reliably: run/package terminals are recreated when the configured working directory changes, instead of reusing a cached terminal with a stale working directory
 
 ### Changed
 - Consistent lowercase "xs" naming across the extension (title, editors, terminals, messages)
+
+## [0.3.2] - 2026-06-22
+
+### Changed
+- Works with the shipped (installer) xs engine
 
 ## [0.1.2] - 2025-12-08
 
