@@ -1,8 +1,8 @@
 {
   "name": "xs-vscode",
-  "displayName": "XS Game Engine Tools",
+  "displayName": "xs game engine tools",
   "description": "Package viewer and tools for the xs game engine",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "BojanEndrovski",
   "author": {
     "name": "Bojan Endrovski"
@@ -111,7 +111,7 @@
     "customEditors": [
       {
         "viewType": "xs.packageViewer",
-        "displayName": "XS Package Viewer",
+        "displayName": "xs package viewer",
         "selector": [
           {
             "filenamePattern": "*.xs"
@@ -121,7 +121,7 @@
       },
       {
         "viewType": "xs.animationEditor",
-        "displayName": "XS Animation Editor",
+        "displayName": "xs animation editor",
         "selector": [
           {
             "filenamePattern": "*.xsanim"
@@ -131,7 +131,7 @@
       },
       {
         "viewType": "xs.spriteEditor",
-        "displayName": "XS Sprite Editor",
+        "displayName": "xs sprite editor",
         "selector": [
           {
             "filenamePattern": "*.xssprite"
@@ -141,7 +141,7 @@
       },
       {
         "viewType": "xs.tilesEditor",
-        "displayName": "XS Tiles Editor",
+        "displayName": "xs tiles editor",
         "selector": [
           {
             "filenamePattern": "*.xstiles"
@@ -156,7 +156,7 @@
         "xs.enginePath": {
           "type": "string",
           "default": "",
-          "description": "Path to the XS Engine executable (Windows: C:\\path\\to\\xs.exe, macOS: /path/to/xs.app, Linux: /path/to/xs)"
+          "description": "Path to the xs engine executable (Windows: C:\\path\\to\\xs.exe, macOS: /path/to/xs.app, Linux: /path/to/xs)"
         },
         "xs.workingDirectory": {
           "type": "string",
@@ -168,7 +168,7 @@
     "debuggers": [
       {
         "type": "xs",
-        "label": "xs Game Engine",
+        "label": "xs game engine",
         "languages": [
           "wren"
         ],
@@ -193,37 +193,37 @@
           {
             "type": "xs",
             "request": "launch",
-            "name": "Run Game",
+            "name": "run game",
             "projectFolder": "${workspaceFolder}",
             "packageFirst": false
           },
           {
             "type": "xs",
             "request": "launch",
-            "name": "Package & Run",
+            "name": "package & run",
             "projectFolder": "${workspaceFolder}",
             "packageFirst": true
           }
         ],
         "configurationSnippets": [
           {
-            "label": "xs: Run Game",
+            "label": "xs: run game",
             "description": "Launch the game from source folder",
             "body": {
               "type": "xs",
               "request": "launch",
-              "name": "Run Game",
+              "name": "run game",
               "projectFolder": "^\"\\${workspaceFolder}\"",
               "packageFirst": false
             }
           },
           {
-            "label": "xs: Package & Run",
+            "label": "xs: package & run",
             "description": "Package and launch the game from .xs package",
             "body": {
               "type": "xs",
               "request": "launch",
-              "name": "Package & Run",
+              "name": "package & run",
               "projectFolder": "^\"\\${workspaceFolder}\"",
               "packageFirst": true
             }
