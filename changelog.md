@@ -2,11 +2,6 @@
 
 All notable changes to the "xs-vscode" extension will be documented in this file.
 
-## [0.3.2] - 2026-06-22
-
-### Changed
-- Engine can now be resolved from the system PATH if no engine path is configured
-
 ## [0.1.2] - 2025-12-08
 
 ### Added
