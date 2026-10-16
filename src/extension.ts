@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as net from 'net';
 import { PackageEditorProvider } from './packageEditor';
 import { AnimationEditorProvider } from './animationEditor/animationEditor';
 import { SpriteEditorProvider } from './spriteEditor/spriteEditor';
@@ -96,13 +97,44 @@ async function resolveExecutablePath(selectedPath: string): Promise<string> {
 
 // Build a shell command that works on the current platform
 // For .app bundles, we call the executable inside directly to keep output in terminal
-async function buildRunCommand(enginePath: string, projectFolder: string): Promise<string> {
+async function buildRunCommand(enginePath: string, projectFolder: string, debugPort?: number): Promise<string> {
+    const debugArgs = debugPort !== undefined ? ` --debug-port ${debugPort}` : '';
     if (isWindows()) {
-        return `& "${enginePath}" run "${projectFolder}"`;
+        return `& "${enginePath}" run "${projectFolder}"${debugArgs}`;
     }
     // Resolve .app bundle to executable inside
     const execPath = await resolveExecutablePath(enginePath);
-    return `"${execPath}" run "${projectFolder}"`;
+    return `"${execPath}" run "${projectFolder}"${debugArgs}`;
+}
+
+// Asks the OS for a port nobody is listening on
+function findFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+            const port = (server.address() as net.AddressInfo).port;
+            server.close(() => resolve(port));
+        });
+    });
+}
+
+// Waits until something accepts connections on the port, the engine is
+// listening for the debugger as soon as it has started.
+async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const connected = await new Promise<boolean>(resolve => {
+            const socket = net.connect(port, '127.0.0.1');
+            socket.once('connect', () => { socket.destroy(); resolve(true); });
+            socket.once('error', () => resolve(false));
+        });
+        if (connected) {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    return false;
 }
 
 async function buildPackageCommand(enginePath: string, projectFolder: string, outputPath: string): Promise<string> {
@@ -499,6 +531,27 @@ class XsLaunchHandler implements vscode.DebugAdapterDescriptorFactory {
 
             terminal.show();
             terminal.sendText(await buildPackageAndRunCommand(enginePath, projectFolder, outputPath));
+        } else if (!config.noDebug) {
+            // Debug the scripts: the engine waits for the debugger on a port
+            const port = await findFreePort();
+            let terminal = activeTerminals.get('xs-debug');
+            if (!terminal || terminal.exitStatus !== undefined) {
+                terminal = vscode.window.createTerminal({
+                    name: 'XS Engine',
+                    cwd: workingDir
+                });
+                activeTerminals.set('xs-debug', terminal);
+            }
+
+            terminal.show();
+            terminal.sendText(await buildRunCommand(enginePath, projectFolder, port));
+
+            if (!await waitForPort(port, 30000)) {
+                vscode.window.showErrorMessage(
+                    'The xs engine did not start listening for the debugger. Is your xs version up to date?');
+                return null;
+            }
+            return new vscode.DebugAdapterServer(port, '127.0.0.1');
         } else {
             // Just Run
             let terminal = activeTerminals.get('xs-debug');
