@@ -2,6 +2,11 @@
 
 All notable changes to the "xs-vscode" extension will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Debug Wren scripts: breakpoints, stepping, call stack and variables. Starting a debug session runs the engine with `--debug-port`. "Run Without Debugging" and "Package & Run" keep running without the debugger.
+
 ## [0.3.3] - 2026-07-08
 
 ### Fixed

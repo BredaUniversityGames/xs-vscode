@@ -36,6 +36,11 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "breakpoints": [
+      {
+        "language": "wren"
+      }
+    ],
     "commands": [
       {
         "command": "xs-vscode.runEngine",
