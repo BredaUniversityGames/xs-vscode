@@ -2,6 +2,7 @@
 .vscode-test/**
 out/**
 node_modules/**
+!node_modules/@vscode/webview-ui-toolkit/dist/toolkit.js
 src/**
 !src/**/animationEditorWebview.css
 !src/**/animationEditorWebview.js

@@ -7,6 +7,9 @@ All notable changes to the "xs-vscode" extension will be documented in this file
 ### Added
 - Debug Wren scripts: breakpoints, stepping, call stack and variables. Starting a debug session runs the engine with `--debug-port`. "Run Without Debugging" and "Package & Run" keep running without the debugger.
 
+### Fixed
+- The packaged extension now includes the webview UI toolkit, so the animation, sprite and tiles editors render their controls when installed from the VSIX
+
 ## [0.3.3] - 2026-07-08
 
 ### Fixed
