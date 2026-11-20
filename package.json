@@ -2,7 +2,7 @@
   "name": "xs-vscode",
   "displayName": "xs game engine tools",
   "description": "Package viewer and tools for the xs game engine",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "publisher": "BojanEndrovski",
   "author": {
     "name": "Bojan Endrovski"
