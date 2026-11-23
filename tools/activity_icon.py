@@ -4,7 +4,8 @@ The geometry comes from xs/tools/images_gen/logo_svg.py: a rounded square and an
 "xs" built from four half-discs. Activity Bar icons are single-color masks, so the
 logo's gradient stripes are dropped.
 
-    python tools/activity_icon.py                     # the four half-circles as lines (default)
+    python tools/activity_icon.py                     # the four half-discs, solid (default)
+    python tools/activity_icon.py --style lines       # the four half-circles as lines
     python tools/activity_icon.py --style outline     # outline square, solid xs
     python tools/activity_icon.py --style filled      # solid square, xs cut out of it
 """
@@ -35,26 +36,39 @@ def rounded_square(x: float, y: float, size: float, r: float) -> str:
             f"V{num(y + r)}A{num(r)} {num(r)} 0 0 1 {num(x + r)} {num(y)}Z")
 
 
-def xs_glyph(cx: float, cy: float, R: float) -> str:
-    """The four half-discs of the logo, centered on (cx, cy), with half-disc radius R."""
-    def half_disc(dx: float, dy: float, up: bool) -> str:
+def xs_glyph(cx: float, cy: float, R: float, gap: float = 0) -> str:
+    """The four half-discs of the logo, centered on (cx, cy), with half-disc radius R.
+    gap pushes the x and the s apart (in px)."""
+    def half_disc(dx: float, dy: float, up: bool, shift: float) -> str:
         # (dx, dy) is in logo space (y up); the flat edge runs through the disc center
-        x, y = cx + dx * R, cy - dy * R
+        x, y = cx + dx * R + shift, cy - dy * R
         return f"M{num(x - R)} {num(y)}A{num(R)} {num(R)} 0 0 {1 if up else 0} {num(x + R)} {num(y)}Z"
 
     return "".join([
-        half_disc(-1.5, -1, True),   # bottom of the x
-        half_disc(-1.5, 1, False),   # top of the x
-        half_disc(0.5, 0, False),    # bottom of the s
-        half_disc(1.5, 0, True),     # top of the s
+        half_disc(-1.5, -1, True, -gap / 2),   # bottom of the x
+        half_disc(-1.5, 1, False, -gap / 2),   # top of the x
+        half_disc(0.5, 0, False, gap / 2),     # bottom of the s
+        half_disc(1.5, 0, True, gap / 2),      # top of the s
     ])
 
 
-def lines_icon() -> str:
-    # Only the glyph, as strokes: it is 5R wide and 2R tall, plus the stroke around it
-    R = (GRID - 2 * PAD - STROKE) / 5
+# The solid and lines icons are only the glyph, which is much wider than tall,
+# so they run almost edge to edge, with a gap between the x and the s
+GLYPH_PAD = 1
+GLYPH_GAP = 1.5
+
+
+def solid_icon() -> str:
+    # The glyph is 5R + gap wide and 2R tall
+    R = (GRID - 2 * GLYPH_PAD - GLYPH_GAP) / 5
+    return f'  <path fill="currentColor" d="{xs_glyph(GRID / 2, GRID / 2, R, GLYPH_GAP)}"/>\n'
+
+
+def lines_icon(join: str = "miter") -> str:
+    # The glyph is 5R + gap wide and 2R tall, plus the stroke around it
+    R = (GRID - 2 * GLYPH_PAD - STROKE - GLYPH_GAP) / 5
     return (f'  <path fill="none" stroke="currentColor" stroke-width="{num(STROKE)}" '
-            f'stroke-linejoin="round" d="{xs_glyph(GRID / 2, GRID / 2, R)}"/>\n')
+            f'stroke-linejoin="{join}" d="{xs_glyph(GRID / 2, GRID / 2, R, GLYPH_GAP)}"/>\n')
 
 
 def outline_icon() -> str:
@@ -78,13 +92,14 @@ def filled_icon() -> str:
     return f'  <path fill="currentColor" fill-rule="evenodd" d="{square}{glyph}"/>\n'
 
 
-STYLES = {"lines": lines_icon, "outline": outline_icon, "filled": filled_icon}
+STYLES = {"solid": solid_icon, "lines": lines_icon, "outline": outline_icon, "filled": filled_icon}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--style", choices=STYLES, default="lines",
-                        help="lines: half-circles as lines, outline: square frame around a solid xs, "
+    parser.add_argument("--style", choices=STYLES, default="solid",
+                        help="solid: the xs as solid half-discs, lines: half-circles as lines, "
+                             "outline: square frame around a solid xs, "
                              "filled: solid square with the xs cut out")
     parser.add_argument("--out", type=Path,
                         default=Path(__file__).resolve().parent.parent / "media" / "icons" / "xs-activity.svg")
