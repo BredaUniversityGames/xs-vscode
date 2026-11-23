@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as net from 'net';
 import { PackageEditorProvider } from './packageEditor';
+import { XsProjectViewProvider, EngineInfo } from './projectView';
 import { AnimationEditorProvider } from './animationEditor/animationEditor';
 import { SpriteEditorProvider } from './spriteEditor/spriteEditor';
 import { TilesEditorProvider } from './tilesEditor/tilesEditor';
@@ -200,11 +201,15 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
     }
 
+    // Shows the xs icon in the activity bar
+    vscode.commands.executeCommand('setContext', 'xs.isProject', true);
+
     // Register all providers and UI elements
     registerEditors(context);
     registerLaunchProvider(context);
     createStatusBarItems(context);
     registerCommands(context);
+    XsProjectViewProvider.register(context, getEngineInfo);
 
     // Clean up terminals when they are closed by the user
     context.subscriptions.push(
@@ -308,19 +313,57 @@ function createStatusBarItems(context: vscode.ExtensionContext) {
     );
 }
 
+// Asks the configured engine (or xs from PATH) for its version, throws when it is not found
+async function getEngineVersion(): Promise<string> {
+    const configuredPath = vscode.workspace.getConfiguration('xs').get<string>('enginePath', '');
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+
+    const executablePath = await resolveExecutablePath(configuredPath || 'xs');
+    const { stdout } = await execAsync(`"${executablePath}" version`);
+    return stdout.trim();
+}
+
+// Full path of a command found on PATH, like `where` / `command -v` would print it
+async function findOnPath(command: string): Promise<string | undefined> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    try {
+        const { stdout } = await execAsync(isWindows() ? `where ${command}` : `command -v ${command}`);
+        const first = stdout.split(/\r?\n/).find((line: string) => line.trim());
+        return first?.trim();
+    } catch {
+        return undefined;
+    }
+}
+
+// Everything the xs panel shows about the engine
+async function getEngineInfo(): Promise<EngineInfo> {
+    const config = vscode.workspace.getConfiguration('xs');
+    const configuredPath = config.get<string>('enginePath', '');
+    const folder = vscode.workspace.workspaceFolders?.[0];
+
+    const [executable, version] = await Promise.all([
+        configuredPath ? resolveExecutablePath(configuredPath) : findOnPath('xs'),
+        getEngineVersion().catch(() => undefined),
+    ]);
+
+    return {
+        version,
+        executable,
+        configured: !!configuredPath,
+        workingDir: folder ? path.resolve(getWorkingDirectory(config, folder.uri.fsPath)) : undefined,
+    };
+}
+
 async function updateEngineVersion(statusBarItem: vscode.StatusBarItem) {
     const config = vscode.workspace.getConfiguration('xs');
     const configuredPath = config.get<string>('enginePath', '');
-    const enginePath = configuredPath || 'xs';
 
     try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-
-        const executablePath = await resolveExecutablePath(enginePath);
-        const { stdout } = await execAsync(`"${executablePath}" version`);
-        const version = stdout.trim();
+        const version = await getEngineVersion();
 
         statusBarItem.text = `$(game) xs ${version}`;
         statusBarItem.tooltip = configuredPath
@@ -405,6 +448,23 @@ function registerCommands(context: vscode.ExtensionContext) {
         terminal.sendText(await buildRunCommand(enginePath, projectFolder));
     });
     context.subscriptions.push(runEngine);
+
+    // Debug Game command: same as F5 without needing a launch.json
+    let debugGame = vscode.commands.registerCommand('xs-vscode.debugGame', async () => {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        await vscode.debug.startDebugging(workspaceFolder, {
+            type: 'xs',
+            request: 'launch',
+            name: 'xs: debug game',
+            projectFolder: '${workspaceFolder}',
+            packageFirst: false
+        });
+    });
+    context.subscriptions.push(debugGame);
 
     // Package Game command
     let packageGame = vscode.commands.registerCommand('xs-vscode.packageGame', async () => {

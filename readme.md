@@ -9,9 +9,18 @@ Visual Studio Code extension providing comprehensive tooling for the xs game eng
 - **xs package viewer** - Visual editor for `.xs` package files
 - **xs animation editor** - Interactive editor for `.xsanim` animation files with timeline and grid view
 
+### xs Activity Bar
+
+An xs icon appears in the Activity Bar whenever the workspace is an xs project. Its panel shows:
+
+- **Project** - the project folder and title, its main script and `project.json` (click to open)
+- **Actions** - Run, Debug, Package and Package & Run
+- **Engine** - the engine version, the full path of the xs executable and the working directory it runs in (click a path to change its setting)
+
 ### Commands
 
 - `xs: run engine` - Launch the xs game engine with your project
+- `xs: debug game` - Launch the game with the Wren debugger attached
 - `xs: package game` - Package your game into an `.xs` file
 - `xs: package and run` - Package and immediately run your game
 - `xs: show engine info` - Display information about the configured engine

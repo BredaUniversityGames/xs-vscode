@@ -41,10 +41,35 @@
         "language": "wren"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "xs",
+          "title": "xs",
+          "icon": "media/icons/xs-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "xs": [
+        {
+          "id": "xs.projectView",
+          "name": "project",
+          "icon": "media/icons/xs-activity.svg",
+          "when": "xs.isProject"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "xs-vscode.runEngine",
-        "title": "xs: run engine"
+        "title": "xs: run engine",
+        "icon": "$(play)"
+      },
+      {
+        "command": "xs-vscode.debugGame",
+        "title": "xs: debug game",
+        "icon": "$(debug-alt)"
       },
       {
         "command": "xs-vscode.packageGame",
@@ -57,6 +82,11 @@
       {
         "command": "xs-vscode.showEngineInfo",
         "title": "xs: show engine info"
+      },
+      {
+        "command": "xs-vscode.refreshProjectView",
+        "title": "xs: refresh project view",
+        "icon": "$(refresh)"
       }
     ],
     "languages": [
@@ -235,7 +265,32 @@
           }
         ]
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "xs-vscode.runEngine",
+          "when": "view == xs.projectView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "xs-vscode.debugGame",
+          "when": "view == xs.projectView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "xs-vscode.refreshProjectView",
+          "when": "view == xs.projectView",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "xs-vscode.refreshProjectView",
+          "when": "xs.isProject"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

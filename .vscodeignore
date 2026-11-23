@@ -20,4 +20,5 @@ vsc-extension-quickstart.md
 **/*.ts
 **/.vscode-test.*
 temp/**
+tools/**
 .claude/**
